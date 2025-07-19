@@ -45,15 +45,15 @@ public class GameManager : MonoBehaviour
     // --- 5개 단위/연속턴/배수 데미지/이펙트 ---
     public AudioClip specialEffectSfx;
     public GameObject specialEffectPrefab;
-    private int consecutiveTurnCount = 0; // 연속 턴 카운트
-    private int lastMovePlayer = 0;
+    // 연속 턴 시스템
+    private int consecutiveTurnCount = 0;
+    private const float CONSECUTIVE_DAMAGE_MULTIPLIER = 1.5f;
 
     // --- K.O/FINISH 연출 ---
     public GameObject koEffectPrefab;
     public AudioClip koSfx;
     public GameObject finishEffectPrefab;
     public AudioClip finishSfx;
-    private bool isGameOver = false;
     private bool isKO = false;
     private bool isFinish = false;
     private float koBounceTimer = 0f;
@@ -63,6 +63,10 @@ public class GameManager : MonoBehaviour
     private float idleTimer = 0f;
     public float idleDamageInterval = 3f;
     public int idleDamageValue = 1;
+    
+    // 자동 데미지 시스템
+    private float autoDamageTimer = 0f;
+    private const float AUTO_DAMAGE_INTERVAL = 5f;
 
     // --- 스킬 효과 샘플 ---
     public AudioClip skill1Sfx;
@@ -70,128 +74,337 @@ public class GameManager : MonoBehaviour
     public AudioClip ultimateSfx;
     public GameObject ultimateEffectPrefab;
 
-    void Start()
+    [Header("게임 정보 UI")]
+    public Text gameInfoText;
+    public Text turnInfoText;
+    public Text scoreInfoText;
+    public Text consecutiveTurnText;
+    public Text gameModeText;
+    public Text diceResultText;
+    
+    // 게임 정보 업데이트
+    void UpdateGameInfo()
     {
-        // GameData에서 선택 정보 받아오기
-        if (GameData.Instance)
+        if (gameInfoText != null)
         {
-            playerCharacterIdx = GameData.Instance.playerCharacterIdx;
-            cpuCharacterIdx = GameData.Instance.cpuCharacterIdx;
-            backgroundIdx = GameData.Instance.backgroundIdx;
+            string info = $"1P HP: {playerHp} | 2P HP: {cpuHp}";
+            gameInfoText.text = info;
         }
-        playerHp = 10000;
-        cpuHp = 10000;
-        playerHpBar.maxValue = cpuHpBar.maxValue = 10000;
-        playerHpBar.value = playerHp;
-        cpuHpBar.value = cpuHp;
-        playerCharacterImage.sprite = characterDiscSprites[playerCharacterIdx];
-        cpuCharacterImage.sprite = characterDiscSprites[cpuCharacterIdx];
-        backgroundImage.sprite = backgroundSprites[backgroundIdx];
-        // 오셀로 보드 초기화 시 돌에 캐릭터별 스프라이트 적용
-        InitBoardWithCharacterDiscs();
-        for (int i = 0; i < 3; i++)
+        
+        if (turnInfoText != null)
         {
-            playerSkillCooldowns[i] = (i < 2) ? 0 : 0; // 궁극기도 0으로 시작
-            cpuSkillCooldowns[i] = (i < 2) ? 0 : 0;
-            playerSkillUsed[i] = false;
-            cpuSkillUsed[i] = false;
+            BoardManager boardManager = FindFirstObjectByType<BoardManager>();
+            if (boardManager != null)
+            {
+                string turnInfo = boardManager.IsBlackTurn() ? "1P 턴" : "2P 턴";
+                turnInfoText.text = turnInfo;
+            }
         }
-        UpdateSkillButtons();
+        
+        if (scoreInfoText != null)
+        {
+            BoardManager boardManager = FindFirstObjectByType<BoardManager>();
+            if (boardManager != null)
+            {
+                string scoreInfo = $"1P: {boardManager.GetBlackScore()} | 2P: {boardManager.GetWhiteScore()}";
+                scoreInfoText.text = scoreInfo;
+            }
+        }
+        
+        if (consecutiveTurnText != null)
+        {
+            if (consecutiveTurnCount > 0)
+            {
+                consecutiveTurnText.text = $"연속 턴: {consecutiveTurnCount}";
+                consecutiveTurnText.color = Color.orange;
+            }
+            else
+            {
+                consecutiveTurnText.text = "";
+            }
+        }
+        
+        if (gameModeText != null)
+        {
+            string modeText = "";
+            switch (GameData.Instance.GetGameMode())
+            {
+                case GameMode.PlayerVsCPU:
+                    modeText = "1P vs CPU";
+                    break;
+                case GameMode.PlayerVsPlayer:
+                    modeText = "1P vs 2P";
+                    break;
+                case GameMode.CPUVsCPU:
+                    modeText = "CPU vs CPU";
+                    break;
+            }
+            gameModeText.text = modeText;
+        }
+        
+        if (diceResultText != null && GameData.Instance.isFirstTurnDetermined)
+        {
+            string diceText = $"주사위 - 1P: {GameData.Instance.diceResult1P}, 2P: {GameData.Instance.diceResult2P}";
+            diceResultText.text = diceText;
+        }
+    }
+    
+    void UpdateHPBars()
+    {
+        if (playerHpBar != null)
+        {
+            playerHpBar.value = playerHp;
+        }
+        if (cpuHpBar != null)
+        {
+            cpuHpBar.value = cpuHp;
+        }
     }
 
-    void InitBoardWithCharacterDiscs()
+    void Start()
     {
-        // 오셀로 초기 돌 배치(캐릭터별 돌)
-        for (int y = 0; y < 8; y++)
-        for (int x = 0; x < 8; x++)
+        // 주사위 결과가 없으면 주사위 굴리기
+        if (!GameData.Instance.isFirstTurnDetermined)
         {
-            boardManager.board[x, y] = 0;
-            if (boardManager.discs[x, y] != null)
-                Destroy(boardManager.discs[x, y].gameObject);
-            boardManager.discs[x, y] = null;
+            GameData.Instance.DetermineFirstTurn();
         }
-        // 중앙 4개 돌 배치 (1:흑=player, 2:백=cpu)
-        boardManager.PlaceDiscWithSprite(3, 3, 2, characterDiscSprites[cpuCharacterIdx]);
-        boardManager.PlaceDiscWithSprite(3, 4, 1, characterDiscSprites[playerCharacterIdx]);
-        boardManager.PlaceDiscWithSprite(4, 3, 1, characterDiscSprites[playerCharacterIdx]);
-        boardManager.PlaceDiscWithSprite(4, 4, 2, characterDiscSprites[cpuCharacterIdx]);
+        
+        // 게임 모드에 따른 초기화
+        InitializeGameMode();
+        
+        // 캐릭터 설정
+        SetupCharacters();
+        
+        // UI 업데이트
+        UpdateGameInfo();
+    }
+    
+    void InitializeGameMode()
+    {
+        GameMode currentMode = GameData.Instance.GetGameMode();
+        
+        switch (currentMode)
+        {
+            case GameMode.PlayerVsCPU:
+                // 1P vs CPU 모드
+                Debug.Log("1P vs CPU 모드 시작");
+                break;
+                
+            case GameMode.PlayerVsPlayer:
+                // 1P vs 2P 모드
+                Debug.Log("1P vs 2P 모드 시작");
+                break;
+                
+            case GameMode.CPUVsCPU:
+                // CPU vs CPU 모드
+                Debug.Log("CPU vs CPU 모드 시작");
+                StartCPUVsCPUGame();
+                break;
+        }
+    }
+    
+    void SetupCharacters()
+    {
+        // 1P 캐릭터 설정
+        CharacterData player1Char = GameData.Instance.GetPlayer1Character();
+        if (player1Char != null && playerCharacterImage != null)
+        {
+            playerCharacterImage.sprite = player1Char.characterSprite;
+        }
+        
+        // 2P/CPU 캐릭터 설정
+        CharacterData player2Char = GameData.Instance.GetPlayer2Character();
+        if (player2Char != null && cpuCharacterImage != null)
+        {
+            cpuCharacterImage.sprite = player2Char.characterSprite;
+        }
+    }
+    
+    void StartCPUVsCPUGame()
+    {
+        // CPU vs CPU 모드에서는 자동으로 게임 진행
+        StartCoroutine(CPUVsCPUGameLoop());
+    }
+    
+    System.Collections.IEnumerator CPUVsCPUGameLoop()
+    {
+        BoardManager boardManager = FindFirstObjectByType<BoardManager>();
+        if (boardManager == null) yield break;
+        
+        while (!boardManager.IsGameEnded())
+        {
+            // CPU가 자동으로 수를 둠
+            boardManager.MakeAIMove();
+            
+            // 잠시 대기
+            yield return new WaitForSeconds(1.0f);
+        }
     }
 
     void Update()
     {
-        if (isGameOver)
+        // CPU vs CPU 모드가 아니면 일반 업데이트
+        if (GameData.Instance.GetGameMode() != GameMode.CPUVsCPU)
         {
-            // KO 박스 통통 튀기
-            if (isKO && koBoxInstance)
+            // 자동 데미지 타이머
+            autoDamageTimer += Time.deltaTime;
+            if (autoDamageTimer >= AUTO_DAMAGE_INTERVAL)
             {
-                koBounceTimer += Time.deltaTime;
-                float bounce = Mathf.Abs(Mathf.Sin(koBounceTimer * Mathf.PI / 1.5f)) * 30f;
-                koBoxInstance.transform.localPosition = new Vector3(0, -100f + bounce, 0);
+                autoDamageTimer = 0f;
+                ApplyAutoDamage();
             }
-            // 아무 키나 클릭 시 캐릭터 선택 씬으로 이동
-            if (Input.anyKeyDown)
-            {
-                UnityEngine.SceneManagement.SceneManager.LoadScene("CharacterSelectScene");
-            }
-            return;
+            
+            // 스킬 쿨타임 업데이트
+            UpdateSkillCooldowns();
         }
-
-        // 1P 차례일 때 자동 데미지 타이머
-        if (currentPlayer == 1)
+        
+        // 게임 정보 업데이트
+        UpdateGameInfo();
+        
+        // KO 바운스 타이머 업데이트
+        if (isKO && koBounceTimer > 0)
         {
-            idleTimer += Time.deltaTime;
-            if (idleTimer >= idleDamageInterval)
+            koBounceTimer -= Time.deltaTime;
+        }
+        
+        // FINISH 상태 체크
+        if (isFinish)
+        {
+            // FINISH 상태에서 추가 처리
+            Debug.Log("FINISH 상태");
+        }
+        
+        // 유휴 타이머 업데이트
+        idleTimer += Time.deltaTime;
+    }
+    
+    void ApplyAutoDamage()
+    {
+        // 현재 턴에 따라 자동 데미지 적용
+        BoardManager boardManager = FindFirstObjectByType<BoardManager>();
+        if (boardManager != null && !boardManager.IsGameEnded())
+        {
+            if (boardManager.IsBlackTurn())
             {
-                playerHp -= idleDamageValue;
-                playerHpBar.value = playerHp;
-                if (playerAnimator) playerAnimator.SetTrigger("Hit");
-                if (sfxSource && hitSfx) sfxSource.PlayOneShot(hitSfx);
-                StartCoroutine(BarFlash(playerHpBar));
-                idleTimer = 0f;
-                // 안내 메시지
-                resultText.text = $"3초 미입력! 1P 데미지 {idleDamageValue}";
-                // HP 0 이하 시 즉시 게임 종료
-                if (playerHp <= 0) { EndGame(); return; }
+                // 1P 턴이면 CPU에게 데미지
+                ApplyDamageToCPU(1);
+            }
+            else
+            {
+                // CPU 턴이면 1P에게 데미지
+                ApplyDamageToPlayer1(1);
             }
         }
-        else
+    }
+    
+    void ApplyDamageToPlayer1(int damage)
+    {
+        playerHp -= damage;
+        if (playerHp < 0) playerHp = 0;
+        
+        UpdateHPBars();
+        ShowDamageEffect(playerHpBar, damage);
+        
+        // 체력바 반짝임 효과
+        if (EffectManager.Instance != null)
         {
-            idleTimer = 0f;
+            EffectManager.Instance.FlashHealthBar(playerHpBar);
         }
-
-        if (Input.GetMouseButtonDown(0) && resultText.text == "")
+        
+        // 데미지 사운드
+        if (AudioManager.Instance != null)
         {
-            Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            int x = Mathf.RoundToInt(mousePos.x);
-            int y = Mathf.RoundToInt(mousePos.y);
-
-            if (IsValidMove(x, y, currentPlayer))
-            {
-                // 연속 턴 체크
-                if (lastMovePlayer == currentPlayer)
-                    consecutiveTurnCount++;
-                else
-                    consecutiveTurnCount = 0;
-                lastMovePlayer = currentPlayer;
-
-                PlaceAndFlip(x, y, currentPlayer);
-                int nextPlayer = 3 - currentPlayer;
-                if (HasValidMove(nextPlayer))
-                {
-                    currentPlayer = nextPlayer;
-                }
-                else if (HasValidMove(currentPlayer))
-                {
-                    // 연속 턴: 배수 데미지 적용
-                    consecutiveTurnCount++;
-                }
-                else
-                {
-                    EndGame();
-                }
-                UpdateTurnText();
-                ShowCurrentPlayerHighlights();
-            }
+            AudioManager.Instance.PlayDamage();
+        }
+        
+        // 캐릭터 애니메이션
+        if (EffectManager.Instance != null)
+        {
+            EffectManager.Instance.PlayCharacterAnimation(true, "Hit");
+        }
+        
+        Debug.Log($"1P 데미지: {damage}, 남은 HP: {playerHp}");
+    }
+    
+    void ApplyDamageToCPU(int damage)
+    {
+        cpuHp -= damage;
+        if (cpuHp < 0) cpuHp = 0;
+        
+        UpdateHPBars();
+        ShowDamageEffect(cpuHpBar, damage);
+        
+        // 체력바 반짝임 효과
+        if (EffectManager.Instance != null)
+        {
+            EffectManager.Instance.FlashHealthBar(cpuHpBar);
+        }
+        
+        // 데미지 사운드
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayDamage();
+        }
+        
+        // 캐릭터 애니메이션
+        if (EffectManager.Instance != null)
+        {
+            EffectManager.Instance.PlayCharacterAnimation(false, "Hit");
+        }
+        
+        Debug.Log($"CPU 데미지: {damage}, 남은 HP: {cpuHp}");
+    }
+    
+    System.Collections.IEnumerator FlashHealthBar(Slider healthBar)
+    {
+        Image fillImage = healthBar.fillRect.GetComponent<Image>();
+        Color originalColor = fillImage.color;
+        
+        for (int i = 0; i < 3; i++)
+        {
+            fillImage.color = Color.red;
+            yield return new WaitForSeconds(0.1f);
+            fillImage.color = originalColor;
+            yield return new WaitForSeconds(0.1f);
+        }
+    }
+    
+    void ShowDamageEffect(Slider healthBar, int damage)
+    {
+        // 데미지 텍스트 이펙트
+        if (EffectManager.Instance != null)
+        {
+            Vector3 effectPosition = healthBar.transform.position;
+            bool isCritical = damage >= 5; // 5 이상이면 크리티컬
+            EffectManager.Instance.ShowDamageEffect(effectPosition, damage, isCritical);
+        }
+        
+        Debug.Log($"데미지 효과: {damage}");
+    }
+    
+    void ShowSpecialEffect(string message)
+    {
+        Debug.Log($"특별 이펙트: {message}");
+        
+        // 특별 이펙트 UI 표시
+        if (EffectManager.Instance != null)
+        {
+            EffectManager.Instance.ShowSpecialEffect(message, Color.yellow);
+        }
+        
+        if (resultText != null)
+        {
+            resultText.text = message;
+            StartCoroutine(ClearResultText());
+        }
+    }
+    
+    System.Collections.IEnumerator ClearResultText()
+    {
+        yield return new WaitForSeconds(2f);
+        if (resultText != null)
+        {
+            resultText.text = "";
         }
     }
 
@@ -218,12 +431,11 @@ public class GameManager : MonoBehaviour
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
         {
-            if (boardManager.board[x, y] == 1) black++;
-            if (boardManager.board[x, y] == 2) white++;
+            if (boardManager.board[x, y].HasPiece() && boardManager.board[x, y].IsBlack()) black++;
+            if (boardManager.board[x, y].HasPiece() && !boardManager.board[x, y].IsBlack()) white++;
         }
         if (playerHp <= 0 || cpuHp <= 0)
         {
-            isGameOver = true;
             isKO = true;
             // K.O 이펙트/사운드/애니메이션
             if (koEffectPrefab)
@@ -247,20 +459,21 @@ public class GameManager : MonoBehaviour
                 playerHp -= diff * 10;
                 playerHpBar.value = playerHp;
             }
-            isGameOver = true;
             isFinish = true;
             // FINISH 이펙트/사운드/애니메이션
             if (finishEffectPrefab)
+            {
                 Instantiate(finishEffectPrefab, Vector3.zero, Quaternion.identity);
+            }
             if (sfxSource && finishSfx) sfxSource.PlayOneShot(finishSfx);
-            resultText.text = $"FINISH! (흑:{black} 백:{white}) 아무 키나 누르세요";
+            resultText.text = "FINISH! 아무 키나 누르세요";
         }
     }
 
     bool IsValidMove(int x, int y, int color)
     {
-        if (x < 0 || x > 7 || y < 0 || y > 7) return false;
-        if (boardManager.board[x, y] != 0) return false;
+        if (x < 0 || x >= 8 || y < 0 || y >= 8 || boardManager.board[x, y].HasPiece())
+            return false;
         return GetFlippableDiscs(x, y, color).Count > 0;
     }
 
@@ -273,202 +486,408 @@ public class GameManager : MonoBehaviour
         return false;
     }
 
-    // 돌 뒤집기 시 체력 연동, 이펙트/사운드/애니메이션 등은 추후 확장
     void PlaceAndFlip(int x, int y, int color)
     {
-        int spriteIdx = (color == 1) ? playerCharacterIdx : cpuCharacterIdx;
-        boardManager.PlaceDiscWithSprite(x, y, color, characterDiscSprites[spriteIdx]);
-        var toFlip = GetFlippableDiscs(x, y, color);
-        foreach (var pos in toFlip)
+        bool isBlack = (color == 1);
+        boardManager.PlaceDisc(x, y, isBlack);
+        var flippable = GetFlippableDiscs(x, y, color);
+        foreach (var pos in flippable)
         {
-            boardManager.FlipDisc(pos.x, pos.y, color);
-            boardManager.discs[pos.x, pos.y].GetComponent<SpriteRenderer>().sprite = characterDiscSprites[spriteIdx];
-            boardManager.discs[pos.x, pos.y].PlayFlipEffect();
-            if (sfxSource && flipSfx) sfxSource.PlayOneShot(flipSfx);
+            boardManager.FlipDisc(pos.x, pos.y);
         }
-        // 5개 단위 이펙트/사운드
-        if (toFlip.Count > 0 && toFlip.Count % 5 == 0)
+        
+        // 데미지 계산 및 적용
+        int damage = flippable.Count;
+        if (color == 1) // 1P가 뒤집었으면 CPU에게 데미지
         {
-            if (sfxSource && specialEffectSfx) sfxSource.PlayOneShot(specialEffectSfx);
-            if (specialEffectPrefab)
-            {
-                var eff = Instantiate(specialEffectPrefab, new Vector3(x, y, 0), Quaternion.identity);
-                Destroy(eff, 1.5f);
-            }
-        }
-        // 연속 턴 배수 데미지
-        double damage = toFlip.Count;
-        if (consecutiveTurnCount > 0)
-            damage *= System.Math.Pow(1.5, consecutiveTurnCount);
-        int intDamage = (int)System.Math.Round(damage);
-        if (color == 1)
-        {
-            cpuHp -= intDamage;
+            cpuHp -= damage;
             cpuHpBar.value = cpuHp;
             if (cpuAnimator) cpuAnimator.SetTrigger("Hit");
-            if (sfxSource && hitSfx && intDamage > 0) sfxSource.PlayOneShot(hitSfx);
-            StartCoroutine(BarFlash(cpuHpBar));
         }
-        else
+        else // CPU가 뒤집었으면 1P에게 데미지
         {
-            playerHp -= intDamage;
+            playerHp -= damage;
             playerHpBar.value = playerHp;
             if (playerAnimator) playerAnimator.SetTrigger("Hit");
-            if (sfxSource && hitSfx && intDamage > 0) sfxSource.PlayOneShot(hitSfx);
-            StartCoroutine(BarFlash(playerHpBar));
         }
-        DecrementSkillCooldowns();
+        
+        // 사운드 재생
+        if (sfxSource && flipSfx) sfxSource.PlayOneShot(flipSfx);
+        
+        // HP 0 이하 시 게임 종료
+        if (playerHp <= 0 || cpuHp <= 0) { EndGame(); return; }
     }
 
     List<Vector2Int> GetFlippableDiscs(int x, int y, int color)
     {
-        List<Vector2Int> result = new List<Vector2Int>();
-        int[] dx = {-1,0,1,-1,1,-1,0,1};
-        int[] dy = {-1,-1,-1,0,0,1,1,1};
-        for (int dir = 0; dir < 8; dir++)
+        var flippable = new List<Vector2Int>();
+        int[] dx = {-1, -1, -1, 0, 0, 1, 1, 1};
+        int[] dy = {-1, 0, 1, -1, 1, -1, 0, 1};
+        
+        for (int i = 0; i < 8; i++)
         {
-            int nx = x + dx[dir], ny = y + dy[dir];
-            List<Vector2Int> temp = new List<Vector2Int>();
-            while (nx >= 0 && nx < 8 && ny >= 0 && ny < 8 && boardManager.board[nx, ny] == 3 - color)
+            var temp = new List<Vector2Int>();
+            int nx = x + dx[i];
+            int ny = y + dy[i];
+            
+            while (nx >= 0 && nx < 8 && ny >= 0 && ny < 8)
             {
+                if (!boardManager.board[nx, ny].HasPiece()) break;
+                bool isCurrentColor = (color == 1) ? boardManager.board[nx, ny].IsBlack() : !boardManager.board[nx, ny].IsBlack();
+                if (isCurrentColor)
+                {
+                    flippable.AddRange(temp);
+                    break;
+                }
                 temp.Add(new Vector2Int(nx, ny));
-                nx += dx[dir]; ny += dy[dir];
+                nx += dx[i];
+                ny += dy[i];
             }
-            if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8 && boardManager.board[nx, ny] == color && temp.Count > 0)
-                result.AddRange(temp);
         }
-        return result;
+        return flippable;
     }
 
-    // 돌을 놓을 때마다 쿨타임 감소
     void DecrementSkillCooldowns()
     {
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 3; i++)
         {
             if (playerSkillCooldowns[i] > 0) playerSkillCooldowns[i]--;
             if (cpuSkillCooldowns[i] > 0) cpuSkillCooldowns[i]--;
         }
+    }
+    
+    void UpdateSkillCooldowns()
+    {
+        DecrementSkillCooldowns();
         UpdateSkillButtons();
     }
 
-    // 스킬 버튼 UI 갱신(사용 가능 시 반짝임, 쿨타임 표시 등)
     void UpdateSkillButtons()
     {
-        for (int i = 0; i < 3; i++)
+        // 1P 스킬 버튼 업데이트
+        for (int i = 0; i < playerSkillButtons.Length; i++)
         {
-            // 플레이어
-            playerSkillButtons[i].interactable = (i < 2 && playerSkillCooldowns[i] == 0) || (i == 2 && !playerSkillUsed[2]);
-            var img = playerSkillButtons[i].GetComponent<Image>();
-            if (playerSkillButtons[i].interactable)
-                img.color = Color.yellow; // 사용 가능 시 반짝임(예시)
-            else
-                img.color = Color.gray;
-            // 쿨타임 텍스트 등은 필요시 추가
-            // CPU(관전 모드 등 확장 가능)
-            cpuSkillButtons[i].interactable = (i < 2 && cpuSkillCooldowns[i] == 0) || (i == 2 && !cpuSkillUsed[2]);
-            var img2 = cpuSkillButtons[i].GetComponent<Image>();
-            if (cpuSkillButtons[i].interactable)
-                img2.color = Color.yellow;
-            else
-                img2.color = Color.gray;
+            bool canUse = playerSkillCooldowns[i] == 0 && !playerSkillUsed[i];
+            playerSkillButtons[i].interactable = canUse;
+            
+            // 버튼 텍스트 업데이트
+            Text buttonText = playerSkillButtons[i].GetComponentInChildren<Text>();
+            if (buttonText != null)
+            {
+                CharacterData charData = CharacterDataManager.Instance.GetCharacterData(playerCharacterIdx);
+                if (charData != null)
+                {
+                    SkillData skillData = null;
+                    switch (i)
+                    {
+                        case 0: skillData = charData.skillA; break;
+                        case 1: skillData = charData.skillB; break;
+                        case 2: skillData = charData.ultimateA; break;
+                    }
+                    if (skillData != null)
+                    {
+                        buttonText.text = skillData.skillName;
+                    }
+                }
+            }
+        }
+        
+        // CPU 스킬 버튼 업데이트
+        for (int i = 0; i < cpuSkillButtons.Length; i++)
+        {
+            bool canUse = cpuSkillCooldowns[i] == 0 && !cpuSkillUsed[i];
+            cpuSkillButtons[i].interactable = canUse;
+            
+            // 버튼 텍스트 업데이트
+            Text buttonText = cpuSkillButtons[i].GetComponentInChildren<Text>();
+            if (buttonText != null)
+            {
+                CharacterData charData = CharacterDataManager.Instance.GetCharacterData(cpuCharacterIdx);
+                if (charData != null)
+                {
+                    SkillData skillData = null;
+                    switch (i)
+                    {
+                        case 0: skillData = charData.skillA; break;
+                        case 1: skillData = charData.skillB; break;
+                        case 2: skillData = charData.ultimateA; break;
+                    }
+                    if (skillData != null)
+                    {
+                        buttonText.text = skillData.skillName;
+                    }
+                }
+            }
         }
     }
 
-    // 스킬 버튼 클릭 시 호출
     public void OnClickPlayerSkill(int idx)
     {
-        if (idx < 2)
+        if (playerSkillCooldowns[idx] > 0 || playerSkillUsed[idx]) return;
+        
+        CharacterData charData = CharacterDataManager.Instance.GetCharacterData(playerCharacterIdx);
+        if (charData == null) return;
+        
+        SkillData skillData = null;
+        switch (idx)
         {
-            if (playerSkillCooldowns[idx] == 0)
-            {
-                if (idx == 0)
-                {
-                    // 스킬1: CPU HP 10 감소
-                    cpuHp -= 10;
-                    cpuHpBar.value = cpuHp;
-                    if (sfxSource && skill1Sfx) sfxSource.PlayOneShot(skill1Sfx);
-                    if (cpuAnimator) cpuAnimator.SetTrigger("Hit");
-                    StartCoroutine(BarFlash(cpuHpBar));
-                }
-                else if (idx == 1)
-                {
-                    // 스킬2: 1P HP 10 회복
-                    playerHp += 10;
-                    if (playerHp > 10000) playerHp = 10000;
-                    playerHpBar.value = playerHp;
-                    if (sfxSource && skill2Sfx) sfxSource.PlayOneShot(skill2Sfx);
-                    if (playerAnimator) playerAnimator.SetTrigger("Heal");
-                    StartCoroutine(BarFlash(playerHpBar));
-                }
-                playerSkillCooldowns[idx] = skillCooldownValue;
-            }
+            case 0: skillData = charData.skillA; break;
+            case 1: skillData = charData.skillB; break;
+            case 2: skillData = charData.ultimateA; break;
         }
-        else if (idx == 2 && !playerSkillUsed[2])
+        
+        if (skillData != null)
         {
-            // 궁극기: CPU HP 50 감소 + 이펙트
-            cpuHp -= 50;
+            // 데미지 적용
+            cpuHp -= skillData.damage;
             cpuHpBar.value = cpuHp;
-            if (sfxSource && ultimateSfx) sfxSource.PlayOneShot(ultimateSfx);
-            if (ultimateEffectPrefab)
-                Instantiate(ultimateEffectPrefab, cpuCharacterImage.transform.position, Quaternion.identity);
-            if (cpuAnimator) cpuAnimator.SetTrigger("Hit");
-            StartCoroutine(BarFlash(cpuHpBar));
-            playerSkillUsed[2] = true;
-            playerSkillCooldowns[2] = ultimateCooldownValue;
-        }
-        UpdateSkillButtons();
-    }
-    public void OnClickCPUSkill(int idx)
-    {
-        if (idx < 2)
-        {
-            if (cpuSkillCooldowns[idx] == 0)
+            
+            // 메시지 출력
+            resultText.text = $"{skillData.skillName} 발동!";
+            
+            // 쿨타임 설정
+            playerSkillCooldowns[idx] = skillData.cooldown;
+            if (skillData.isUltimate)
             {
-                if (idx == 0)
-                {
-                    // 스킬1: 1P HP 10 감소
-                    playerHp -= 10;
-                    playerHpBar.value = playerHp;
-                    if (sfxSource && skill1Sfx) sfxSource.PlayOneShot(skill1Sfx);
-                    if (playerAnimator) playerAnimator.SetTrigger("Hit");
-                    StartCoroutine(BarFlash(playerHpBar));
-                }
-                else if (idx == 1)
-                {
-                    // 스킬2: CPU HP 10 회복
-                    cpuHp += 10;
-                    if (cpuHp > 10000) cpuHp = 10000;
-                    cpuHpBar.value = cpuHp;
-                    if (sfxSource && skill2Sfx) sfxSource.PlayOneShot(skill2Sfx);
-                    if (cpuAnimator) cpuAnimator.SetTrigger("Heal");
-                    StartCoroutine(BarFlash(cpuHpBar));
-                }
-                cpuSkillCooldowns[idx] = skillCooldownValue;
+                playerSkillUsed[idx] = true;
             }
+            
+            // 사운드 재생
+            if (sfxSource)
+            {
+                if (idx == 0 && skill1Sfx) sfxSource.PlayOneShot(skill1Sfx);
+                else if (idx == 1 && skill2Sfx) sfxSource.PlayOneShot(skill2Sfx);
+                else if (idx == 2 && ultimateSfx) sfxSource.PlayOneShot(ultimateSfx);
+            }
+            
+            // HP 0 이하 시 게임 종료
+            if (cpuHp <= 0) { EndGame(); return; }
+            
+            UpdateSkillButtons();
         }
-        else if (idx == 2 && !cpuSkillUsed[2])
-        {
-            // 궁극기: 1P HP 50 감소 + 이펙트
-            playerHp -= 50;
-            playerHpBar.value = playerHp;
-            if (sfxSource && ultimateSfx) sfxSource.PlayOneShot(ultimateSfx);
-            if (ultimateEffectPrefab)
-                Instantiate(ultimateEffectPrefab, playerCharacterImage.transform.position, Quaternion.identity);
-            if (playerAnimator) playerAnimator.SetTrigger("Hit");
-            StartCoroutine(BarFlash(playerHpBar));
-            cpuSkillUsed[2] = true;
-            cpuSkillCooldowns[2] = ultimateCooldownValue;
-        }
-        UpdateSkillButtons();
     }
 
-    // 체력바 반짝임 코루틴
+    public void OnClickCPUSkill(int idx)
+    {
+        if (cpuSkillCooldowns[idx] > 0 || cpuSkillUsed[idx]) return;
+        
+        CharacterData charData = CharacterDataManager.Instance.GetCharacterData(cpuCharacterIdx);
+        if (charData == null) return;
+        
+        SkillData skillData = null;
+        switch (idx)
+        {
+            case 0: skillData = charData.skillA; break;
+            case 1: skillData = charData.skillB; break;
+            case 2: skillData = charData.ultimateA; break;
+        }
+        
+        if (skillData != null)
+        {
+            // 데미지 적용
+            playerHp -= skillData.damage;
+            playerHpBar.value = playerHp;
+            
+            // 메시지 출력
+            resultText.text = $"{skillData.skillName} 발동!";
+            
+            // 쿨타임 설정
+            cpuSkillCooldowns[idx] = skillData.cooldown;
+            if (skillData.isUltimate)
+            {
+                cpuSkillUsed[idx] = true;
+            }
+            
+            // 사운드 재생
+            if (sfxSource)
+            {
+                if (idx == 0 && skill1Sfx) sfxSource.PlayOneShot(skill1Sfx);
+                else if (idx == 1 && skill2Sfx) sfxSource.PlayOneShot(skill2Sfx);
+                else if (idx == 2 && ultimateSfx) sfxSource.PlayOneShot(ultimateSfx);
+            }
+            
+            // HP 0 이하 시 게임 종료
+            if (playerHp <= 0) { EndGame(); return; }
+            
+            UpdateSkillButtons();
+        }
+    }
+
     System.Collections.IEnumerator BarFlash(Slider bar)
     {
-        var img = bar.fillRect.GetComponent<UnityEngine.UI.Image>();
-        Color orig = img.color;
-        img.color = Color.red;
-        yield return new WaitForSeconds(0.2f);
-        img.color = orig;
+        Color originalColor = bar.fillRect.GetComponent<Image>().color;
+        bar.fillRect.GetComponent<Image>().color = Color.red;
+        yield return new WaitForSeconds(0.1f);
+        bar.fillRect.GetComponent<Image>().color = originalColor;
+    }
+
+    // 스킬 사용 시 이펙트와 사운드 추가
+    public void UseSkill(int skillIndex)
+    {
+        if (skillIndex < 0 || skillIndex >= 3) return;
+        
+        // 스킬 쿨타임 체크
+        if (!CanUseSkill(skillIndex)) return;
+        
+        // 스킬 사용
+        CharacterData currentChar = GameData.Instance.selectedCharacter1P;
+        if (currentChar != null)
+        {
+            SkillData skill = GetSkillData(currentChar, skillIndex);
+            if (skill != null)
+            {
+                // 스킬 이펙트
+                if (EffectManager.Instance != null)
+                {
+                    Vector3 effectPosition = transform.position;
+                    EffectManager.Instance.ShowSkillEffect(effectPosition, skill.skillName);
+                }
+                
+                // 스킬 사운드
+                if (AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.PlaySkillUse();
+                }
+                
+                // 스킬 사용 애니메이션
+                if (EffectManager.Instance != null)
+                {
+                    EffectManager.Instance.PlayCharacterAnimation(true, "Attack");
+                }
+                
+                // 데미지 적용
+                ApplyDamageToCPU(skill.damage);
+                
+                // 스킬 사용 처리
+                UseSkillInternal(skillIndex);
+                
+                Debug.Log($"{skill.skillName} 발동!");
+            }
+        }
+    }
+    
+    // 게임 종료 처리 개선
+    void CheckGameEnd()
+    {
+        if (playerHp <= 0 || cpuHp <= 0)
+        {
+            isKO = true;
+            isFinish = true;
+            
+            if (playerHp <= 0)
+            {
+                // CPU 승리
+                ShowGameEndEffect(false);
+            }
+            else
+            {
+                // 1P 승리
+                ShowGameEndEffect(true);
+            }
+        }
+    }
+    
+    void ShowGameEndEffect(bool player1Wins)
+    {
+        string winnerText = "";
+        
+        if (player1Wins)
+        {
+            // 1P 승리
+            winnerText = "1P 승리!";
+            if (EffectManager.Instance != null)
+            {
+                EffectManager.Instance.ShowKOEffect();
+            }
+            
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlayKO();
+                AudioManager.Instance.PlayVictory();
+            }
+        }
+        else
+        {
+            // 2P 승리
+            switch (GameData.Instance.GetGameMode())
+            {
+                case GameMode.PlayerVsCPU:
+                    winnerText = "CPU 승리!";
+                    break;
+                case GameMode.PlayerVsPlayer:
+                    winnerText = "2P 승리!";
+                    break;
+                case GameMode.CPUVsCPU:
+                    winnerText = "CPU2 승리!";
+                    break;
+            }
+            
+            if (EffectManager.Instance != null)
+            {
+                EffectManager.Instance.ShowKOEffect();
+            }
+            
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlayKO();
+                AudioManager.Instance.PlayDefeat();
+            }
+        }
+        
+        if (resultText != null)
+        {
+            resultText.text = winnerText;
+        }
+        
+        // 3초 후 캐릭터 선택 화면으로 이동
+        StartCoroutine(ReturnToCharacterSelect());
+    }
+    
+    System.Collections.IEnumerator ReturnToCharacterSelect()
+    {
+        yield return new WaitForSeconds(3f);
+        UnityEngine.SceneManagement.SceneManager.LoadScene("CharacterSelectScene");
+    }
+    
+    // 누락된 메서드들 추가
+    bool CanUseSkill(int skillIndex)
+    {
+        if (skillIndex < 0 || skillIndex >= 3) return false;
+        return playerSkillCooldowns[skillIndex] == 0 && !playerSkillUsed[skillIndex];
+    }
+    
+    SkillData GetSkillData(CharacterData character, int skillIndex)
+    {
+        if (character == null) return null;
+        
+        switch (skillIndex)
+        {
+            case 0: return character.skillA;
+            case 1: return character.skillB;
+            case 2: return character.ultimateA;
+            default: return null;
+        }
+    }
+    
+    void UseSkillInternal(int skillIndex)
+    {
+        if (skillIndex < 0 || skillIndex >= 3) return;
+        
+        // 쿨타임 설정
+        CharacterData currentChar = GameData.Instance.selectedCharacter1P;
+        if (currentChar != null)
+        {
+            SkillData skill = GetSkillData(currentChar, skillIndex);
+            if (skill != null)
+            {
+                playerSkillCooldowns[skillIndex] = skill.cooldown;
+                if (skill.isUltimate)
+                {
+                    playerSkillUsed[skillIndex] = true;
+                }
+            }
+        }
+        
+        UpdateSkillButtons();
     }
 } 
