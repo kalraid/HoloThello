@@ -1,16 +1,21 @@
 using UnityEngine;
-
+// [ExecuteInEditMode] // 제거
 public class Disc : MonoBehaviour
 {
-    private SpriteRenderer spriteRenderer;
+    private SpriteRenderer mainRenderer;
+    private SpriteRenderer miniRenderer;
     private bool hasPiece = false;
     private bool isBlack = true;
-    private int x, y;
+    // x, y 좌표는 public으로 변경하여 GameManager에서 접근 가능하게 함
+    public int x, y;
     private BoardManager boardManager;
     
     void Awake()
     {
-        spriteRenderer = GetComponent<SpriteRenderer>();
+        // mainRenderer, miniRenderer 자동 할당
+        mainRenderer = GetComponent<SpriteRenderer>();
+        Transform mini = transform.Find("MiniImage");
+        if (mini != null) miniRenderer = mini.GetComponent<SpriteRenderer>();
     }
     
     public void Initialize(int x, int y, BoardManager boardManager)
@@ -20,61 +25,42 @@ public class Disc : MonoBehaviour
         this.boardManager = boardManager;
         
         // 초기 상태: 빈 칸
-        spriteRenderer.sprite = null;
+        mainRenderer.sprite = null;
         hasPiece = false;
+    }
+    
+    // mainRenderer(흑/백), miniRenderer(캐릭터 미니이미지) 동시 할당 함수
+    public void SetDisc(bool isBlack, Sprite miniSprite)
+    {
+        this.isBlack = isBlack;
+        hasPiece = true;
+        if (mainRenderer != null)
+        {
+            mainRenderer.sprite = null;
+            mainRenderer.color = isBlack ? Color.black : Color.white;
+        }
+        if (miniRenderer != null)
+        {
+            miniRenderer.sprite = miniSprite;
+            miniRenderer.color = Color.white;
+        }
     }
     
     public void SetPiece(bool isBlack)
     {
-        this.isBlack = isBlack;
-        hasPiece = true;
-        
-        // 캐릭터 이미지 설정
-        CharacterData selectedChar = GameData.Instance.selectedCharacter1P;
-        if (isBlack)
-        {
-            selectedChar = GameData.Instance.selectedCharacter1P;
-        }
-        else
-        {
-            selectedChar = GameData.Instance.selectedCharacterCPU;
-        }
-        
-        if (selectedChar != null && selectedChar.discSprite != null)
-        {
-            spriteRenderer.sprite = selectedChar.discSprite;
-        }
-        else
-        {
-            // 기본 색상으로 설정
-            spriteRenderer.color = isBlack ? Color.black : Color.white;
-        }
+        // 캐릭터 미니이미지 결정
+        CharacterData selectedChar = isBlack ? GameData.Instance.selectedCharacter1P : GameData.Instance.selectedCharacterCPU;
+        Sprite miniSprite = (selectedChar != null) ? selectedChar.discSprite : null;
+        SetDisc(isBlack, miniSprite);
     }
     
     public void Flip()
     {
         isBlack = !isBlack;
-        
-        // 캐릭터 이미지 업데이트
-        CharacterData selectedChar = GameData.Instance.selectedCharacter1P;
-        if (isBlack)
-        {
-            selectedChar = GameData.Instance.selectedCharacter1P;
-        }
-        else
-        {
-            selectedChar = GameData.Instance.selectedCharacterCPU;
-        }
-        
-        if (selectedChar != null && selectedChar.discSprite != null)
-        {
-            spriteRenderer.sprite = selectedChar.discSprite;
-        }
-        else
-        {
-            // 기본 색상으로 설정
-            spriteRenderer.color = isBlack ? Color.black : Color.white;
-        }
+        // 캐릭터 미니이미지 결정
+        CharacterData selectedChar = isBlack ? GameData.Instance.selectedCharacter1P : GameData.Instance.selectedCharacterCPU;
+        Sprite miniSprite = (selectedChar != null) ? selectedChar.discSprite : null;
+        SetDisc(isBlack, miniSprite);
         
         // 뒤집기 애니메이션 (간단한 스케일 효과)
         StartCoroutine(FlipAnimation());
@@ -119,82 +105,6 @@ public class Disc : MonoBehaviour
         return isBlack;
     }
     
-    void OnMouseDown()
-    {
-        // 게임이 끝났으면 클릭 무시
-        if (boardManager.IsGameEnded()) return;
-        
-        // 게임 모드에 따른 클릭 처리
-        GameMode currentMode = GameData.Instance.GetGameMode();
-        
-        switch (currentMode)
-        {
-            case GameMode.PlayerVsCPU:
-                // 1P vs CPU 모드: 1P만 클릭 가능
-                if (boardManager.IsBlackTurn())
-                {
-                    HandlePlayerClick();
-                }
-                break;
-                
-            case GameMode.PlayerVsPlayer:
-                // 1P vs 2P 모드: 현재 턴에 맞는 플레이어만 클릭 가능
-                HandlePlayerClick();
-                break;
-                
-            case GameMode.CPUVsCPU:
-                // CPU vs CPU 모드: 클릭 무시
-                break;
-        }
-    }
-    
-    void HandlePlayerClick()
-    {
-        // 현재 위치가 유효한 수인지 확인
-        if (boardManager.IsValidMove(x, y, boardManager.IsBlackTurn()))
-        {
-            // 수를 둠
-            boardManager.PlacePiece(x, y, boardManager.IsBlackTurn());
-            
-            // 클릭 사운드
-            if (AudioManager.Instance != null)
-            {
-                AudioManager.Instance.PlayClick();
-            }
-        }
-        else
-        {
-            // 유효하지 않은 수 클릭 시 피드백
-            if (UIManager.Instance != null)
-            {
-                UIManager.Instance.ShowMessage("유효하지 않은 수입니다!", 1f);
-            }
-            
-            // 에러 사운드
-            if (AudioManager.Instance != null)
-            {
-                AudioManager.Instance.PlayError();
-            }
-        }
-    }
-    
-    void OnMouseEnter()
-    {
-        if (!hasPiece && boardManager != null && !boardManager.IsGameEnded())
-        {
-            // 유효한 수인지 확인하고 하이라이트
-            if (boardManager.IsValidMove(x, y, boardManager.IsBlackTurn()))
-            {
-                spriteRenderer.color = new Color(1f, 1f, 1f, 0.5f);
-            }
-        }
-    }
-    
-    void OnMouseExit()
-    {
-        if (!hasPiece)
-        {
-            spriteRenderer.color = Color.clear;
-        }
-    }
+    // OnMouseDown, HandlePlayerClick, OnMouseEnter, OnMouseExit 메서드 전체 삭제
+    // (입력 처리는 GameManager에서 중앙 관리)
 } 

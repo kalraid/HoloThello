@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Audio;
+using System.Collections.Generic; // List 사용을 위해 추가
 
 public class AudioManager : MonoBehaviour
 {
@@ -29,6 +30,10 @@ public class AudioManager : MonoBehaviour
     public float bgmVolume = 0.8f;
     public float sfxVolume = 1.0f;
     
+    [Header("오디오 소스 풀")]
+    private List<AudioSource> sfxSourcePool = new List<AudioSource>();
+    private int sfxPoolSize = 10; // 동시에 재생 가능한 효과음 수
+
     void Awake()
     {
         if (Instance == null)
@@ -55,20 +60,56 @@ public class AudioManager : MonoBehaviour
             bgmSource.playOnAwake = false;
         }
         
-        if (sfxSource == null)
+        // SFX 소스 풀 생성
+        if (sfxSource == null) // 대표 sfxSource가 없다면 하나 생성
         {
-            GameObject sfxGO = new GameObject("SFXSource");
-            sfxGO.transform.SetParent(transform);
-            sfxSource = sfxGO.AddComponent<AudioSource>();
-            sfxSource.loop = false;
-            sfxSource.playOnAwake = false;
+            sfxSource = CreateNewSfxSource();
         }
-        
-        // 볼륨 설정 로드
+        sfxSourcePool.Add(sfxSource);
+
+        for (int i = 0; i < sfxPoolSize - 1; i++)
+        {
+            sfxSourcePool.Add(CreateNewSfxSource());
+        }
+
+        // 믹서 그룹 연결
+        SetupMixerGroups();
+
+        // 볼륨 설정 로드 및 적용
         LoadVolumeSettings();
         
         // 배경음악 시작
         PlayBGM(0);
+    }
+
+    AudioSource CreateNewSfxSource()
+    {
+        GameObject sfxGO = new GameObject("SFXSource");
+        sfxGO.transform.SetParent(transform);
+        AudioSource source = sfxGO.AddComponent<AudioSource>();
+        source.loop = false;
+        source.playOnAwake = false;
+        return source;
+    }
+
+    void SetupMixerGroups()
+    {
+        if (audioMixer == null) return;
+
+        AudioMixerGroup[] bgmGroups = audioMixer.FindMatchingGroups("BGM");
+        if (bgmGroups.Length > 0 && bgmSource != null)
+        {
+            bgmSource.outputAudioMixerGroup = bgmGroups[0];
+        }
+
+        AudioMixerGroup[] sfxGroups = audioMixer.FindMatchingGroups("SFX");
+        if (sfxGroups.Length > 0)
+        {
+            foreach (var source in sfxSourcePool)
+            {
+                if(source != null) source.outputAudioMixerGroup = sfxGroups[0];
+            }
+        }
     }
     
     void LoadVolumeSettings()
@@ -144,12 +185,41 @@ public class AudioManager : MonoBehaviour
         }
     }
     
-    // 효과음 재생
+    // 효과음 재생 로직 (풀링 사용)
     public void PlaySFX(AudioClip clip)
     {
-        if (sfxSource != null && clip != null)
+        if (clip == null) return;
+
+        // 사용 가능한 (현재 재생 중이 아닌) 오디오 소스를 찾음
+        AudioSource sourceToUse = null;
+        foreach (var source in sfxSourcePool)
         {
-            sfxSource.PlayOneShot(clip);
+            if (source != null && !source.isPlaying)
+            {
+                sourceToUse = source;
+                break;
+            }
+        }
+
+        // 모든 소스가 사용 중이면 새로 생성 (혹은 가장 오래된 소리 중단)
+        if (sourceToUse == null)
+        {
+            sourceToUse = CreateNewSfxSource();
+            sfxSourcePool.Add(sourceToUse);
+            // 믹서 그룹 재설정
+            if (audioMixer != null)
+            {
+                AudioMixerGroup[] sfxGroups = audioMixer.FindMatchingGroups("SFX");
+                if (sfxGroups.Length > 0) sourceToUse.outputAudioMixerGroup = sfxGroups[0];
+            }
+        }
+
+        if (sourceToUse != null)
+        {
+            sourceToUse.clip = clip;
+            sourceToUse.volume = sfxVolume * masterVolume; // 볼륨 재설정
+            sourceToUse.pitch = 1f; // 피치 초기화
+            sourceToUse.Play();
         }
     }
     

@@ -35,187 +35,134 @@ public class CharacterSelectManager : MonoBehaviour
     private CharacterData[] currentTypeCharacters;
     private GameMode currentGameMode = GameMode.PlayerVsCPU;
     
-    private int selectStep = 0; // 0:1P, 1:CPU, 2:배경
+    // --- 상태 관리 ---
+    private enum SelectionState { Player1, Player2, CPU, Background, Done }
+    private SelectionState currentState;
+    
+    // selectStep 변수는 더 이상 사용되지 않으므로 삭제
     private int selected1P = -1;
     private int selectedCPU = -1;
     private int selectedBackground = 0;
 
+    #region Unity Lifecycle Methods
+
     void Start()
     {
-        // GameData 인스턴스 확인
-        if (GameData.Instance == null)
+        if (!ValidateComponents())
         {
-            Debug.LogError("GameData.Instance가 null입니다. GameData 오브젝트가 씬에 있는지 확인하세요.");
+            enabled = false;
             return;
         }
-        
-        // 캐릭터 타입 설정 로드
-        currentCharacterType = GameData.Instance.GetCharacterType();
-        
-        // 게임 모드 설정 로드
-        currentGameMode = GameData.Instance.GetGameMode();
-        
-        // 현재 타입의 캐릭터들 로드
-        LoadCharactersByType(currentCharacterType);
-        
-        // UI 초기화
-        UpdateTypeUI();
-        UpdateGameModeUI();
-        UpdateUI();
-    }
 
-    void Update()
-    {
-        // 키보드 좌우 이동/선택 처리 (예시: 좌우 화살표, Z키)
-        if (selectStep < 2)
-        {
-            if (Input.GetKeyDown(KeyCode.LeftArrow))
-                MoveSelection(-1);
-            if (Input.GetKeyDown(KeyCode.RightArrow))
-                MoveSelection(1);
-            if (Input.GetKeyDown(KeyCode.Z))
-                ConfirmSelection();
-        }
-        else if (selectStep == 2)
-        {
-            if (Input.GetKeyDown(KeyCode.LeftArrow))
-                MoveBackground(-1);
-            if (Input.GetKeyDown(KeyCode.RightArrow))
-                MoveBackground(1);
-            if (Input.GetKeyDown(KeyCode.Z))
-                ConfirmBackground();
-        }
-    }
-
-    void MoveSelection(int dir)
-    {
-        int max = 10; // 10개 캐릭터
-        if (selectStep == 0)
-        {
-            if (selected1P == -1) selected1P = 0;
-            else selected1P = (selected1P + dir + max) % max;
-            if (selected1P == selectedCPU) selected1P = (selected1P + dir + max) % max;
-        }
-        else if (selectStep == 1)
-        {
-            if (selectedCPU == -1) selectedCPU = 0;
-            else selectedCPU = (selectedCPU + dir + max) % max;
-            if (selectedCPU == selected1P) selectedCPU = (selectedCPU + dir + max) % max;
-        }
-        UpdateUI();
-    }
-
-    void MoveBackground(int dir)
-    {
-        int max = backgroundSprites.Length;
-        selectedBackground = (selectedBackground + dir + max) % max;
-        UpdateUI();
-    }
-
-    void ConfirmSelection()
-    {
-        if (selectStep == 0 && selected1P != -1)
-        {
-            selectStep = 1;
-            // 1P가 고른 캐릭터는 CPU가 선택 불가
-            if (selectedCPU == selected1P) selectedCPU = -1;
-        }
-        else if (selectStep == 1 && selectedCPU != -1)
-        {
-            selectStep = 2;
-        }
-        UpdateUI();
-    }
-
-    void ConfirmBackground()
-    {
-        // 선택 완료 → 게임 씬으로 이동, 선택 정보 저장
-        if (GameData.Instance)
-        {
-            GameData.Instance.playerCharacterIdx = selected1P;
-            GameData.Instance.cpuCharacterIdx = selectedCPU;
-            GameData.Instance.backgroundIdx = selectedBackground;
-        }
-        UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
-    }
-
-    void UpdateUI()
-    {
-        // 캐릭터 바/풀사진/회색 처리/선택 박스 등 UI 갱신
-        for (int i = 0; i < characterBarImages.Length && i < 10; i++)
-        {
-            // 현재 타입의 캐릭터 데이터에서 스프라이트 가져오기
-            if (currentTypeCharacters != null && i < currentTypeCharacters.Length)
-            {
-                CharacterData charData = currentTypeCharacters[i];
-                if (charData != null && charData.characterSprite != null)
-                {
-                    characterBarImages[i].sprite = charData.characterSprite;
-                    characterBarImages[i].color = Color.white; // 원래 색상으로 복원
-                }
-                else
-                {
-                    // 스프라이트가 없으면 임시 색상 사용
-                    characterBarImages[i].color = new Color(
-                        Random.Range(0.5f, 1f),
-                        Random.Range(0.5f, 1f),
-                        Random.Range(0.5f, 1f),
-                        1f
-                    );
-                }
-            }
-            else
-            {
-                // 캐릭터 데이터가 없으면 임시 색상 사용
-                characterBarImages[i].color = new Color(
-                    Random.Range(0.5f, 1f),
-                    Random.Range(0.5f, 1f),
-                    Random.Range(0.5f, 1f),
-                    1f
-                );
-            }
-            
-            // 1P/CPU가 선택한 캐릭터는 테두리/색상 등으로 표시
-            if (selectStep == 0 && i == selected1P) characterBarImages[i].color = Color.yellow;
-            if (selectStep == 1 && i == selectedCPU) characterBarImages[i].color = Color.cyan;
-            // CPU가 선택 불가한 캐릭터(1P가 고른 것)는 회색 처리
-            if (selectStep == 1 && i == selected1P) characterBarImages[i].color = Color.gray;
-        }
-        
-        // 풀사진 갱신
-        if (selectStep == 0 && selected1P != -1 && selected1P < currentTypeCharacters.Length)
-        {
-            CharacterData selectedChar = currentTypeCharacters[selected1P];
-            if (selectedChar != null && selectedChar.characterSprite != null)
-            {
-                fullCharacterImage.sprite = selectedChar.characterSprite;
-                fullCharacterImage.color = Color.white;
-            }
-        }
-        else if (selectStep == 1 && selectedCPU != -1 && selectedCPU < currentTypeCharacters.Length)
-        {
-            CharacterData selectedChar = currentTypeCharacters[selectedCPU];
-            if (selectedChar != null && selectedChar.characterSprite != null)
-            {
-                fullCharacterImage.sprite = selectedChar.characterSprite;
-                fullCharacterImage.color = Color.white;
-            }
-        }
-        
-        // 안내 텍스트
-        if (selectStep == 0) selectLabel.text = "1P 캐릭터를 선택하세요";
-        else if (selectStep == 1) selectLabel.text = "CPU 캐릭터를 선택하세요";
-        else selectLabel.text = "배경을 선택하세요";
-        
-        // 배경 바/미리보기
-        for (int i = 0; i < backgroundBarImages.Length; i++)
-        {
-            backgroundBarImages[i].sprite = backgroundSprites[i];
-            backgroundBarImages[i].color = (i == selectedBackground) ? Color.yellow : Color.white;
-        }
-        selectedBackgroundImage.sprite = backgroundSprites[selectedBackground];
+        InitializeState();
+        InitializeListeners();
+        UpdateAllUI();
     }
     
+    // 키보드 입력은 Update에서 계속 처리
+    void Update()
+    {
+        HandleKeyboardInput();
+    }
+
+    #endregion
+
+    #region Initialization
+
+    bool ValidateComponents()
+    {
+        // 주요 UI 컴포넌트들이 연결되었는지 확인
+        if (fullCharacterImage == null || selectLabel == null || typeAButton == null || playerVsCPUButton == null)
+        {
+            Debug.LogError("CharacterSelectManager의 필수 UI 컴포넌트가 연결되지 않았습니다!");
+            return false;
+        }
+        if (GameData.Instance == null)
+        {
+            Debug.LogError("GameData.Instance가 없습니다. 씬에 GameData 오브젝트를 추가하세요.");
+            return false;
+        }
+        if (CharacterDataManager.Instance == null)
+        {
+            Debug.LogError("CharacterDataManager.Instance가 없습니다. 씬에 CharacterDataManager 오브젝트를 추가하세요.");
+            return false;
+        }
+        return true;
+    }
+
+    void InitializeState()
+    {
+        currentCharacterType = GameData.Instance.GetCharacterType();
+        currentGameMode = GameData.Instance.GetGameMode();
+        LoadCharactersByType(currentCharacterType);
+        ResetSelection();
+    }
+    
+    void InitializeListeners()
+    {
+        // 버튼 이벤트 리스너 설정 (중복 방지)
+        typeAButton.onClick.RemoveAllListeners();
+        typeAButton.onClick.AddListener(OnClickTypeA);
+        
+        typeBButton.onClick.RemoveAllListeners();
+        typeBButton.onClick.AddListener(OnClickTypeB);
+        
+        playerVsCPUButton.onClick.RemoveAllListeners();
+        playerVsCPUButton.onClick.AddListener(OnClickPlayerVsCPU);
+        
+        playerVsPlayerButton.onClick.RemoveAllListeners();
+        playerVsPlayerButton.onClick.AddListener(OnClickPlayerVsPlayer);
+        
+        cpuVsCPUButton.onClick.RemoveAllListeners();
+        cpuVsCPUButton.onClick.AddListener(OnClickCPUVsCPU);
+
+        // 캐릭터/배경 버튼 리스너는 동적으로 생성되므로 UI 업데이트 시 처리
+    }
+    
+    #endregion
+
+    #region State Machine
+
+    void ChangeState(SelectionState newState)
+    {
+        currentState = newState;
+        UpdateAllUI();
+    }
+
+    void ResetSelection()
+    {
+        selected1P = -1;
+        selectedCPU = -1;
+        selectedBackground = 0;
+        
+        // 게임 모드에 따라 초기 상태 결정
+        if (currentGameMode == GameMode.CPUVsCPU)
+        {
+            // CPU vs CPU 모드는 바로 배경 선택으로 (또는 자동 선택 로직 추가)
+            // 예시: 자동으로 캐릭터 선택 후 배경 선택으로
+            selected1P = Random.Range(0, 10);
+            selectedCPU = (selected1P + 1) % 10;
+            ChangeState(SelectionState.Background);
+        }
+        else
+        {
+            ChangeState(SelectionState.Player1);
+        }
+    }
+
+    #endregion
+
+    #region UI Update
+
+    void UpdateAllUI()
+    {
+        UpdateTypeUI();
+        UpdateGameModeUI();
+        UpdateCharacterSelectionUI();
+        UpdateBackgroundSelectionUI();
+        UpdateStateSpecificUI();
+    }
+
     void LoadCharactersByType(CharacterType type)
     {
         if (CharacterDataManager.Instance == null)
@@ -230,9 +177,9 @@ public class CharacterSelectManager : MonoBehaviour
         // 선택 초기화
         selected1P = -1;
         selectedCPU = -1;
-        selectStep = 0;
+        // selectStep = 0; // 삭제됨
         
-        UpdateUI();
+        UpdateAllUI(); // 변경됨
     }
     
     public void OnClickTypeA()
@@ -325,178 +272,231 @@ public class CharacterSelectManager : MonoBehaviour
         }
     }
     
-    void ResetSelection()
+    void UpdateCharacterSelectionUI()
     {
-        selected1P = -1;
-        selectedCPU = -1;
-        selectStep = 0;
-        UpdateUI();
-    }
-    
-    public void OnClickCharacter(int characterIndex)
-    {
-        if (characterIndex < 0 || characterIndex >= 10) return;
-        
-        if (selectStep == 0) // 1P 선택
+        // 1P, 2P 캐릭터 바 공통 로직
+        UpdateCharacterBars(characterBarImages, selected1P, selectedCPU);
+        if (player2CharacterBarImages != null)
         {
-            selected1P = characterIndex;
-            
-            if (currentGameMode == GameMode.PlayerVsPlayer)
-            {
-                // 2P 모드면 2P 캐릭터 선택으로
-                selectStep = 1;
-                ShowPlayer2Selection();
-            }
-            else
-            {
-                // CPU 모드면 CPU 캐릭터 선택으로
-                selectStep = 1;
-            }
-            UpdateUI();
+            UpdateCharacterBars(player2CharacterBarImages, selected1P, selectedCPU);
         }
-        else if (selectStep == 1) // CPU/2P 선택
+
+        // 풀 이미지 업데이트
+        int focusedPlayer = (currentState == SelectionState.Player1) ? selected1P : selectedCPU;
+        UpdateFullCharacterImage(fullCharacterImage, focusedPlayer);
+        if (player2FullCharacterImage != null)
         {
-            if (currentGameMode == GameMode.PlayerVsPlayer)
-            {
-                // 2P 모드
-                if (characterIndex != selected1P) // 1P와 다른 캐릭터 선택
-                {
-                    selectedCPU = characterIndex;
-                    selectStep = 2; // 배경 선택 단계로
-                    HidePlayer2Selection();
-                    UpdateUI();
-                }
-            }
-            else
-            {
-                // CPU 모드
-                if (characterIndex != selected1P) // 1P와 다른 캐릭터 선택
-                {
-                    selectedCPU = characterIndex;
-                    selectStep = 2; // 배경 선택 단계로
-                    UpdateUI();
-                }
-            }
+            UpdateFullCharacterImage(player2FullCharacterImage, selectedCPU);
         }
     }
-    
-    void ShowPlayer2Selection()
+
+    void UpdateCharacterBars(Image[] bars, int p1, int p2)
     {
-        if (player2SelectionPanel != null)
+        if (bars == null) return;
+        for (int i = 0; i < bars.Length && i < 10; i++)
         {
-            player2SelectionPanel.SetActive(true);
-        }
-        
-        if (player2SelectLabel != null)
-        {
-            player2SelectLabel.text = "2P 캐릭터를 선택하세요";
-        }
-        
-        UpdatePlayer2UI();
-    }
-    
-    void HidePlayer2Selection()
-    {
-        if (player2SelectionPanel != null)
-        {
-            player2SelectionPanel.SetActive(false);
-        }
-    }
-    
-    void UpdatePlayer2UI()
-    {
-        // 2P 캐릭터 바 업데이트
-        for (int i = 0; i < player2CharacterBarImages.Length && i < 10; i++)
-        {
-            if (currentTypeCharacters != null && i < currentTypeCharacters.Length)
+            // 캐릭터 스프라이트 설정
+            if (currentTypeCharacters != null && i < currentTypeCharacters.Length && currentTypeCharacters[i] != null)
             {
-                CharacterData charData = currentTypeCharacters[i];
-                if (charData != null && charData.characterSprite != null)
-                {
-                    player2CharacterBarImages[i].sprite = charData.characterSprite;
-                    player2CharacterBarImages[i].color = Color.white;
-                }
-                else
-                {
-                    player2CharacterBarImages[i].color = new Color(
-                        Random.Range(0.5f, 1f),
-                        Random.Range(0.5f, 1f),
-                        Random.Range(0.5f, 1f),
-                        1f
-                    );
-                }
+                bars[i].sprite = currentTypeCharacters[i].characterSprite;
             }
             
-            // 선택된 캐릭터 표시
-            if (i == selectedCPU)
+            // 선택 상태에 따른 색상 변경
+            Color color = Color.white;
+            if (i == p1) color = (currentState == SelectionState.Player1) ? Color.yellow : Color.gray;
+            if (i == p2) color = (currentState == SelectionState.Player2 || currentState == SelectionState.CPU) ? Color.cyan : Color.white;
+            bars[i].color = color;
+        }
+    }
+
+    void UpdateFullCharacterImage(Image image, int selectedIndex)
+    {
+        if (image == null || currentTypeCharacters == null || selectedIndex < 0 || selectedIndex >= currentTypeCharacters.Length) return;
+        
+        CharacterData selectedChar = currentTypeCharacters[selectedIndex];
+        if (selectedChar != null)
+        {
+            image.sprite = selectedChar.characterSprite;
+            image.color = Color.white;
+        }
+    }
+
+    void UpdateBackgroundSelectionUI()
+    {
+        if (backgroundBarImages == null || backgroundSprites == null) return;
+        for (int i = 0; i < backgroundBarImages.Length; i++)
+        {
+            if (i < backgroundSprites.Length)
             {
-                player2CharacterBarImages[i].color = Color.cyan;
-            }
-            // 1P가 선택한 캐릭터는 회색 처리
-            else if (i == selected1P)
-            {
-                player2CharacterBarImages[i].color = Color.gray;
+                backgroundBarImages[i].sprite = backgroundSprites[i];
+                backgroundBarImages[i].color = (i == selectedBackground) ? Color.yellow : Color.white;
             }
         }
-        
-        // 2P 풀사진 업데이트
-        if (selectedCPU != -1 && selectedCPU < currentTypeCharacters.Length)
+        if (selectedBackgroundImage != null && selectedBackground < backgroundSprites.Length)
         {
-            CharacterData selectedChar = currentTypeCharacters[selectedCPU];
-            if (selectedChar != null && selectedChar.characterSprite != null)
-            {
-                player2FullCharacterImage.sprite = selectedChar.characterSprite;
-                player2FullCharacterImage.color = Color.white;
-            }
+            selectedBackgroundImage.sprite = backgroundSprites[selectedBackground];
         }
     }
     
+    void UpdateStateSpecificUI()
+    {
+        if (selectLabel == null) return;
+        
+        switch (currentState)
+        {
+            case SelectionState.Player1:
+                selectLabel.text = "1P 캐릭터를 선택하세요";
+                if(player2SelectionPanel != null) player2SelectionPanel.SetActive(false);
+                break;
+            case SelectionState.Player2:
+                selectLabel.text = "2P 캐릭터를 선택하세요";
+                if(player2SelectionPanel != null) player2SelectionPanel.SetActive(true);
+                break;
+            case SelectionState.CPU:
+                selectLabel.text = "CPU 캐릭터를 선택하세요";
+                if(player2SelectionPanel != null) player2SelectionPanel.SetActive(false);
+                break;
+            case SelectionState.Background:
+                selectLabel.text = "배경을 선택하세요";
+                if(player2SelectionPanel != null) player2SelectionPanel.SetActive(false);
+                break;
+        }
+    }
+
+    #endregion
+
+    #region Input Handlers
+
+    private void HandleKeyboardInput()
+    {
+        // 키보드 좌우 이동/선택 처리 (예시: 좌우 화살표, Z키)
+        if (currentState < SelectionState.Background)
+        {
+            if (Input.GetKeyDown(KeyCode.LeftArrow))
+                MoveSelection(-1);
+            if (Input.GetKeyDown(KeyCode.RightArrow))
+                MoveSelection(1);
+            if (Input.GetKeyDown(KeyCode.Z))
+                ConfirmSelection();
+        }
+        else if (currentState == SelectionState.Background)
+        {
+            if (Input.GetKeyDown(KeyCode.LeftArrow))
+                MoveBackground(-1);
+            if (Input.GetKeyDown(KeyCode.RightArrow))
+                MoveBackground(1);
+            if (Input.GetKeyDown(KeyCode.Z))
+                ConfirmBackground();
+        }
+    }
+
+    void MoveSelection(int dir)
+    {
+        int max = 10; // 10개 캐릭터
+        if (currentState == SelectionState.Player1)
+        {
+            if (selected1P == -1) selected1P = 0;
+            else selected1P = (selected1P + dir + max) % max;
+            if (selected1P == selectedCPU) selected1P = (selected1P + dir + max) % max;
+        }
+        else if (currentState == SelectionState.CPU)
+        {
+            if (selectedCPU == -1) selectedCPU = 0;
+            else selectedCPU = (selectedCPU + dir + max) % max;
+            if (selectedCPU == selected1P) selectedCPU = (selectedCPU + dir + max) % max;
+        }
+        UpdateAllUI();
+    }
+
+    void MoveBackground(int dir)
+    {
+        int max = backgroundSprites.Length;
+        selectedBackground = (selectedBackground + dir + max) % max;
+        UpdateAllUI();
+    }
+
+    void ConfirmSelection()
+    {
+        if (currentState == SelectionState.Player1 && selected1P != -1)
+        {
+            ChangeState(SelectionState.CPU);
+            // 1P가 고른 캐릭터는 CPU가 선택 불가
+            if (selectedCPU == selected1P) selectedCPU = -1;
+        }
+        else if (currentState == SelectionState.CPU && selectedCPU != -1)
+        {
+            ChangeState(SelectionState.Background);
+        }
+        UpdateAllUI();
+    }
+
+    void ConfirmBackground()
+    {
+        // 선택 완료 → 게임 씬으로 이동, 선택 정보 저장
+        if (GameData.Instance)
+        {
+            GameData.Instance.playerCharacterIdx = selected1P;
+            GameData.Instance.cpuCharacterIdx = selectedCPU;
+            GameData.Instance.backgroundIdx = selectedBackground;
+        }
+        UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+    }
+
+    public void OnClickCharacter(int index)
+    {
+        if (index < 0 || index >= 10) return;
+
+        switch (currentState)
+        {
+            case SelectionState.Player1:
+                selected1P = index;
+                if (currentGameMode == GameMode.PlayerVsPlayer) ChangeState(SelectionState.Player2);
+                else ChangeState(SelectionState.CPU);
+                break;
+            case SelectionState.Player2:
+            case SelectionState.CPU:
+                if (index != selected1P)
+                {
+                    selectedCPU = index;
+                    ChangeState(SelectionState.Background);
+                }
+                break;
+        }
+    }
+    
+    public void OnClickBackground(int index)
+    {
+        selectedBackground = index;
+        UpdateAllUI();
+    }
+
+    public void OnClickConfirm()
+    {
+        if (selected1P != -1 && selectedCPU != -1)
+        {
+            // 데이터 저장
+            GameData.Instance.selectedCharacter1P = currentTypeCharacters[selected1P];
+            if (currentGameMode == GameMode.PlayerVsPlayer)
+                GameData.Instance.selectedCharacter2P = currentTypeCharacters[selectedCPU];
+            else
+                GameData.Instance.selectedCharacterCPU = currentTypeCharacters[selectedCPU];
+
+            // 씬 이동
+            SceneManager.LoadScene("GameScene");
+        }
+    }
+
+    // 2P 캐릭터 선택 버튼 클릭 시 호출 (ButtonUtilityEditor 등에서 사용)
     public void OnClickPlayer2Character(int characterIndex)
     {
         if (characterIndex < 0 || characterIndex >= 10) return;
-        
+
         if (characterIndex != selected1P) // 1P와 다른 캐릭터 선택
         {
             selectedCPU = characterIndex;
-            UpdatePlayer2UI();
+            UpdateAllUI();
         }
     }
-    
-    public void OnClickConfirm()
-    {
-        if (selectStep == 2 && selected1P != -1 && selectedCPU != -1)
-        {
-            // 선택된 캐릭터 데이터 저장
-            if (currentTypeCharacters != null && selected1P < currentTypeCharacters.Length && selectedCPU < currentTypeCharacters.Length)
-            {
-                GameData.Instance.selectedCharacter1P = currentTypeCharacters[selected1P];
-                
-                if (currentGameMode == GameMode.PlayerVsPlayer)
-                {
-                    GameData.Instance.selectedCharacter2P = currentTypeCharacters[selectedCPU];
-                }
-                else
-                {
-                    GameData.Instance.selectedCharacterCPU = currentTypeCharacters[selectedCPU];
-                }
-            }
-            
-            // 주사위 굴리기 화면으로 이동
-            if (DiceManager.Instance != null)
-            {
-                DiceManager.Instance.ShowDicePanel();
-            }
-            else
-            {
-                // DiceManager가 없으면 바로 게임으로
-                UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
-            }
-        }
-    }
-    
-    public void OnClickBackground(int backgroundIndex)
-    {
-        selectedBackground = backgroundIndex;
-        UpdateUI();
-    }
+
+    #endregion
 } 

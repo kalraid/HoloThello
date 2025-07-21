@@ -1,7 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using System.Collections.Generic; // ObjectPool 확장을 위해 추가
 
+// [ExecuteInEditMode] // 제거
 public class EffectManager : MonoBehaviour
 {
     public static EffectManager Instance { get; private set; }
@@ -23,6 +25,9 @@ public class EffectManager : MonoBehaviour
     public Animator player1Animator;
     public Animator cpuAnimator;
     
+    [Header("오브젝트 풀 설정")]
+    public List<PoolableObject> objectPools; // 인스펙터에서 설정할 풀 목록
+
     void Awake()
     {
         if (Instance == null)
@@ -34,163 +39,137 @@ public class EffectManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        if (!ValidateComponents())
+        {
+            enabled = false;
+            return;
+        }
+        InitializeObjectPools();
     }
     
-    // 데미지 텍스트 이펙트
+    #region Initialization
+
+    bool ValidateComponents()
+    {
+        if (damageTextPrefab == null || effectCanvas == null || player1Animator == null || cpuAnimator == null)
+        {
+            Debug.LogError("EffectManager의 필수 컴포넌트 중 일부가 연결되지 않았습니다!");
+            return false;
+        }
+        return true;
+    }
+
+    void InitializeObjectPools()
+    {
+        if (ObjectPool.Instance != null && objectPools != null)
+        {
+            foreach (var pool in objectPools)
+            {
+                ObjectPool.Instance.AddPool(pool.tag, pool.prefab, pool.size);
+            }
+        }
+    }
+
+    #endregion
+
+    #region Effect Spawning Methods
+
+    // 모든 이펙트 생성 메서드에서 ObjectPool을 사용하도록 통합
     public void ShowDamageEffect(Vector3 position, int damage, bool isCritical = false)
     {
-        if (damageTextPrefab != null && effectCanvas != null)
+        GameObject effectObject = GetPooledObject("DamageText", position);
+        if (effectObject == null) return;
+
+        Text textComponent = effectObject.GetComponent<Text>();
+        if (textComponent != null)
         {
-            GameObject damageText;
-            
-            // ObjectPool 사용
-            if (ObjectPool.Instance != null)
-            {
-                damageText = ObjectPool.Instance.SpawnFromPool("DamageText", position, Quaternion.identity);
-                if (damageText == null)
-                {
-                    // 풀에 없으면 직접 생성
-                    damageText = Instantiate(damageTextPrefab, effectCanvas);
-                }
-            }
-            else
-            {
-                damageText = Instantiate(damageTextPrefab, effectCanvas);
-            }
-            
-            damageText.transform.position = position;
-            
-            Text textComponent = damageText.GetComponent<Text>();
-            if (textComponent != null)
-            {
-                textComponent.text = damage.ToString();
-                textComponent.color = isCritical ? Color.red : Color.white;
-                textComponent.fontSize = isCritical ? 24 : 18;
-            }
-            
-            StartCoroutine(AnimateDamageText(damageText));
+            textComponent.text = damage.ToString();
+            textComponent.color = isCritical ? Color.red : Color.white;
+            textComponent.fontSize = isCritical ? 24 : 18;
         }
+        
+        StartCoroutine(AnimateAndReturn(effectObject, "DamageText", 1f));
     }
     
-    IEnumerator AnimateDamageText(GameObject damageText)
-    {
-        Vector3 startPos = damageText.transform.position;
-        Vector3 endPos = startPos + Vector3.up * 50f;
-        
-        float duration = 1f;
-        float elapsed = 0f;
-        
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-            
-            damageText.transform.position = Vector3.Lerp(startPos, endPos, t);
-            
-            // 페이드 아웃
-            Text text = damageText.GetComponent<Text>();
-            if (text != null)
-            {
-                Color color = text.color;
-                color.a = 1f - t;
-                text.color = color;
-            }
-            
-            yield return null;
-        }
-        
-        // ObjectPool로 반환
-        if (ObjectPool.Instance != null)
-        {
-            ObjectPool.Instance.ReturnToPool("DamageText", damageText);
-        }
-        else
-        {
-            Destroy(damageText);
-        }
-    }
-    
-    // 스킬 사용 이펙트
     public void ShowSkillEffect(Vector3 position, string skillName)
     {
-        if (skillEffectPrefab != null && skillEffectContainer != null)
+        GameObject effectObject = GetPooledObject("SkillEffect", position, skillEffectContainer);
+        if (effectObject == null) return;
+        
+        Text skillText = effectObject.GetComponentInChildren<Text>();
+        if (skillText != null)
         {
-            GameObject skillEffect;
-            
-            // ObjectPool 사용
-            if (ObjectPool.Instance != null)
-            {
-                skillEffect = ObjectPool.Instance.SpawnFromPool("SkillEffect", position, Quaternion.identity);
-                if (skillEffect == null)
-                {
-                    // 풀에 없으면 직접 생성
-                    skillEffect = Instantiate(skillEffectPrefab, skillEffectContainer);
-                }
-            }
-            else
-            {
-                skillEffect = Instantiate(skillEffectPrefab, skillEffectContainer);
-            }
-            
-            skillEffect.transform.position = position;
-            
-            // 스킬 이름 텍스트 설정
-            Text skillText = skillEffect.GetComponentInChildren<Text>();
-            if (skillText != null)
-            {
-                skillText.text = skillName;
-            }
-            
-            StartCoroutine(AnimateSkillEffect(skillEffect));
+            skillText.text = skillName;
         }
+        
+        StartCoroutine(AnimateAndReturn(effectObject, "SkillEffect", 1f, AnimationType.ScaleUpDown));
     }
-    
-    IEnumerator AnimateSkillEffect(GameObject skillEffect)
+
+    public void ShowKOEffect()
     {
-        // 스케일 애니메이션
-        Vector3 originalScale = skillEffect.transform.localScale;
-        Vector3 targetScale = originalScale * 1.5f;
+        GameObject effectObject = GetPooledObject("KOEffect", Vector3.zero, gameEndEffectContainer);
+        if (effectObject == null) return;
+        StartCoroutine(AnimateKOEffect(effectObject)); // KO는 독자적인 애니메이션 유지
+    }
+
+    public void ShowFinishEffect()
+    {
+        GameObject effectObject = GetPooledObject("FinishEffect", Vector3.zero, gameEndEffectContainer);
+        if (effectObject == null) return;
+        StartCoroutine(AnimateFinishEffect(effectObject)); // Finish도 독자적인 애니메이션 유지
+    }
+
+    private GameObject GetPooledObject(string tag, Vector3 position, Transform parent = null)
+    {
+        if (ObjectPool.Instance == null) return null;
         
-        float duration = 0.5f;
+        GameObject obj = ObjectPool.Instance.SpawnFromPool(tag, position, Quaternion.identity);
+        if (obj != null && parent != null)
+        {
+            obj.transform.SetParent(parent, false);
+        }
+        return obj;
+    }
+
+    #endregion
+
+    #region Animation Coroutines
+
+    // 범용 애니메이션 및 반환 코루틴
+    private enum AnimationType { MoveUpFadeOut, ScaleUpDown }
+
+    IEnumerator AnimateAndReturn(GameObject obj, string tag, float duration, AnimationType animType = AnimationType.MoveUpFadeOut)
+    {
+        Vector3 startPos = obj.transform.position;
+        Vector3 startScale = obj.transform.localScale;
+        Text text = obj.GetComponent<Text>();
+
         float elapsed = 0f;
-        
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
-            
-            if (t < 0.5f)
+
+            switch(animType)
             {
-                // 확대
-                skillEffect.transform.localScale = Vector3.Lerp(originalScale, targetScale, t * 2f);
+                case AnimationType.MoveUpFadeOut:
+                    obj.transform.position = Vector3.Lerp(startPos, startPos + Vector3.up * 50f, t);
+                    if (text != null) text.color = new Color(text.color.r, text.color.g, text.color.b, 1f - t);
+                    break;
+                case AnimationType.ScaleUpDown:
+                    obj.transform.localScale = Vector3.Lerp(startScale, startScale * 1.5f, Mathf.PingPong(t * 2, 1));
+                    break;
             }
-            else
-            {
-                // 축소
-                skillEffect.transform.localScale = Vector3.Lerp(targetScale, Vector3.zero, (t - 0.5f) * 2f);
-            }
-            
             yield return null;
         }
-        
-        // ObjectPool로 반환
+
         if (ObjectPool.Instance != null)
         {
-            ObjectPool.Instance.ReturnToPool("SkillEffect", skillEffect);
+            ObjectPool.Instance.ReturnToPool(tag, obj);
         }
         else
         {
-            Destroy(skillEffect);
-        }
-    }
-    
-    // K.O. 이펙트
-    public void ShowKOEffect()
-    {
-        if (koEffectPrefab != null && gameEndEffectContainer != null)
-        {
-            GameObject koEffect = Instantiate(koEffectPrefab, gameEndEffectContainer);
-            StartCoroutine(AnimateKOEffect(koEffect));
+            Destroy(obj);
         }
     }
     
@@ -225,16 +204,6 @@ public class EffectManager : MonoBehaviour
         }
         
         Destroy(koEffect);
-    }
-    
-    // FINISH 이펙트
-    public void ShowFinishEffect()
-    {
-        if (finishEffectPrefab != null && gameEndEffectContainer != null)
-        {
-            GameObject finishEffect = Instantiate(finishEffectPrefab, gameEndEffectContainer);
-            StartCoroutine(AnimateFinishEffect(finishEffect));
-        }
     }
     
     IEnumerator AnimateFinishEffect(GameObject finishEffect)
@@ -283,10 +252,13 @@ public class EffectManager : MonoBehaviour
     public void PlayCharacterAnimation(bool isPlayer1, string animationName)
     {
         Animator targetAnimator = isPlayer1 ? player1Animator : cpuAnimator;
-        
         if (targetAnimator != null)
         {
             targetAnimator.SetTrigger(animationName);
+        }
+        else
+        {
+            Debug.LogWarning( (isPlayer1 ? "Player1" : "CPU") + "의 Animator가 연결되지 않았습니다.");
         }
     }
     
@@ -377,4 +349,14 @@ public class EffectManager : MonoBehaviour
         
         Destroy(specialEffect);
     }
+
+    #endregion
+}
+
+[System.Serializable]
+public class PoolableObject
+{
+    public string tag;
+    public GameObject prefab;
+    public int size;
 } 

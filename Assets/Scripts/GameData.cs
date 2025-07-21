@@ -1,5 +1,5 @@
 using UnityEngine;
-
+// [ExecuteInEditMode] // 제거
 public enum GameMode
 {
     PlayerVsCPU,    // 1P vs CPU
@@ -55,7 +55,7 @@ public class GameData : MonoBehaviour
         }
     }
     
-    void LoadSettings()
+    public void LoadSettings() // 접근 제한자를 public으로 변경
     {
         // 설정값 로드
         masterVolume = PlayerPrefs.GetFloat("MasterVolume", 1.0f);

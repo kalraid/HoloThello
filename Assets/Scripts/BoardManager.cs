@@ -25,41 +25,55 @@ public class BoardManager : MonoBehaviour
     private int whiteScore = 0;
     private List<Vector2Int> validMoves = new List<Vector2Int>();
     
+    #region Unity Lifecycle Methods
+    
     void Start()
     {
+        // 필수 컴포넌트 확인
+        if (!ValidateComponents())
+        {
+            enabled = false; // 필수 컴포넌트 없으면 동작 중지
+            return;
+        }
+
         InitializeBoard();
         SetupInitialPieces();
-        UpdateValidMoves();
-        UpdateScore();
-        UpdateUI();
         
-        // 주사위 결과에 따른 선공 설정
-        if (GameData.Instance.isFirstTurnDetermined)
+        // 선공 설정
+        if (GameData.Instance != null && GameData.Instance.isFirstTurnDetermined && !GameData.Instance.isPlayer1First)
         {
-            // 주사위 결과에 따라 선공 설정
-            if (!GameData.Instance.isPlayer1First)
-            {
-                // 2P가 선공이면 턴 변경
-                isBlackTurn = false;
-                UpdateUI();
-            }
+            isBlackTurn = false;
         }
+
+        // 게임 시작
+        StartGame();
+    }
+
+    #endregion
+
+    #region Initialization Methods
+
+    bool ValidateComponents()
+    {
+        bool isValid = true;
+        if (discPrefab == null) { Debug.LogError("discPrefab이 할당되지 않았습니다."); isValid = false; }
+        if (boardContainer == null) { Debug.LogError("boardContainer가 할당되지 않았습니다."); isValid = false; }
+        return isValid;
     }
     
     void InitializeBoard()
     {
         board = new Disc[boardSize, boardSize];
-        
-        // 보드 생성
         for (int x = 0; x < boardSize; x++)
         {
             for (int y = 0; y < boardSize; y++)
             {
                 GameObject discObj = Instantiate(discPrefab, boardContainer);
                 discObj.transform.localPosition = new Vector3(x, y, 0);
-                
                 Disc disc = discObj.GetComponent<Disc>();
                 disc.Initialize(x, y, this);
+                // 빈 칸: SetDisc(false, null)로 초기화
+                disc.SetDisc(false, null);
                 board[x, y] = disc;
             }
         }
@@ -71,48 +85,152 @@ public class BoardManager : MonoBehaviour
         int center = boardSize / 2;
         
         // 중앙 4개 위치에 초기 돌 배치
-        PlacePiece(center - 1, center - 1, false); // 흰돌
-        PlacePiece(center, center, false); // 흰돌
-        PlacePiece(center - 1, center, true); // 검은돌
-        PlacePiece(center, center - 1, true); // 검은돌
+        // PlacePiece -> SetDiscOnBoard로 변경
+        SetDiscOnBoard(center - 1, center - 1, false); // 흰돌
+        SetDiscOnBoard(center, center, false); // 흰돌
+        SetDiscOnBoard(center - 1, center, true); // 검은돌
+        SetDiscOnBoard(center, center - 1, true); // 검은돌
     }
-    
-    public bool PlacePiece(int x, int y, bool isBlack)
+
+    #endregion
+
+    #region Game Flow
+
+    void StartGame()
     {
-        if (x < 0 || x >= boardSize || y < 0 || y >= boardSize)
+        gameEnded = false;
+        UpdateTurn();
+    }
+
+    // PlacePiece -> TryPlacePiece로 변경하고 역할 분리
+    public bool TryPlacePiece(int x, int y)
+    {
+        if (gameEnded || !IsValidMove(x, y, isBlackTurn))
+        {
             return false;
-            
-        if (board[x, y].HasPiece())
-            return false;
-            
-        // 유효한 위치인지 확인
-        if (!IsValidMove(x, y, isBlack))
-            return false;
-            
-        // 돌 배치
-        board[x, y].SetPiece(isBlack);
-        
-        // 상대방 돌 뒤집기
-        FlipPieces(x, y, isBlack);
-        
-        // 턴 변경
-        isBlackTurn = !isBlackTurn;
-        
-        // 점수 업데이트
-        UpdateScore();
-        
-        // 다음 유효한 수 확인
-        UpdateValidMoves();
-        
-        // UI 업데이트
-        UpdateUI();
-        
-        // 게임 종료 체크
-        CheckGameEnd();
+        }
+
+        // 1. 돌 배치 및 뒤집기
+        SetDiscOnBoard(x, y, isBlackTurn);
+        FlipPieces(x, y, isBlackTurn);
+
+        // 2. 턴 변경
+        SwitchTurn();
         
         return true;
     }
+
+    void SetDiscOnBoard(int x, int y, bool isBlack)
+    {
+        if (!IsValidPosition(x, y) || (board[x, y] != null && board[x, y].HasPiece())) return;
+
+        CharacterData selectedChar = isBlack 
+            ? (GameData.Instance != null ? GameData.Instance.selectedCharacter1P : null)
+            : (GameData.Instance != null ? GameData.Instance.selectedCharacterCPU : null);
+        
+        Sprite miniSprite = (selectedChar != null) ? selectedChar.discSprite : null;
+        board[x, y].SetDisc(isBlack, miniSprite);
+    }
     
+    void SwitchTurn()
+    {
+        isBlackTurn = !isBlackTurn;
+        UpdateTurn();
+    }
+
+    void UpdateTurn()
+    {
+        UpdateValidMoves();
+        
+        // 현재 턴에 둘 곳이 없으면 상대방에게 턴 넘김
+        if (validMoves.Count == 0)
+        {
+            isBlackTurn = !isBlackTurn;
+            UpdateValidMoves();
+
+            // 양쪽 모두 둘 곳이 없으면 게임 종료
+            if (validMoves.Count == 0)
+            {
+                EndGame();
+                return;
+            }
+        }
+        
+        UpdateAllUI();
+        CheckGameEndCondition();
+
+        // GameManager에 유효한 수 목록을 전달하여 커서 상태 업데이트에 사용하도록 할 수 있음
+        // (이번 단계에서는 직접적인 호출 대신, GameManager가 GetValidMoves를 사용하도록 유도)
+    }
+
+    #endregion
+
+    #region UI Update Methods
+
+    void UpdateAllUI()
+    {
+        UpdateScore();
+        UpdateTurnDisplay();
+        UpdateScoreDisplay();
+        // 필요하다면 하이라이트 표시 등 추가
+    }
+
+    void UpdateScoreDisplay()
+    {
+        if (blackScoreText != null) blackScoreText.text = blackScore.ToString();
+        if (whiteScoreText != null) whiteScoreText.text = whiteScore.ToString();
+    }
+    
+    void UpdateUI()
+    {
+        UpdateScore();
+        UpdateTurnDisplay();
+        UpdateValidMoves();
+        
+        // 게임 모드에 따른 추가 UI 업데이트
+        if (GameData.Instance.IsCPUVsCPUMode())
+        {
+            // CPU vs CPU 모드에서는 자동 진행 표시
+            if (autoPlayText != null)
+            {
+                autoPlayText.text = "CPU vs CPU 자동 진행 중...";
+            }
+        }
+        else
+        {
+            if (autoPlayText != null)
+            {
+                autoPlayText.text = "";
+            }
+        }
+    }
+    
+    // 게임 모드에 따른 턴 표시 업데이트
+    void UpdateTurnDisplay()
+    {
+        if (turnText != null)
+        {
+            string turnInfo = "";
+            switch (GameData.Instance.GetGameMode())
+            {
+                case GameMode.PlayerVsCPU:
+                    turnInfo = isBlackTurn ? "1P 턴" : "CPU 턴";
+                    break;
+                case GameMode.PlayerVsPlayer:
+                    turnInfo = isBlackTurn ? "1P 턴" : "2P 턴";
+                    break;
+                case GameMode.CPUVsCPU:
+                    turnInfo = isBlackTurn ? "CPU1 턴" : "CPU2 턴";
+                    break;
+            }
+            turnText.text = turnInfo;
+        }
+    }
+
+    #endregion
+
+    #region Game Logic
+
     public bool IsValidMove(int x, int y, bool isBlack)
     {
         if (board[x, y].HasPiece())
@@ -235,34 +353,10 @@ public class BoardManager : MonoBehaviour
         }
     }
     
-    void UpdateUI()
+    void CheckGameEndCondition()
     {
-        UpdateScore();
-        UpdateTurnDisplay();
-        UpdateValidMoves();
-        
-        // 게임 모드에 따른 추가 UI 업데이트
-        if (GameData.Instance.IsCPUVsCPUMode())
-        {
-            // CPU vs CPU 모드에서는 자동 진행 표시
-            if (autoPlayText != null)
-            {
-                autoPlayText.text = "CPU vs CPU 자동 진행 중...";
-            }
-        }
-        else
-        {
-            if (autoPlayText != null)
-            {
-                autoPlayText.text = "";
-            }
-        }
-    }
-    
-    void CheckGameEnd()
-    {
-        // 보드가 가득 찼거나 양쪽 모두 수가 없으면 게임 종료
-        if (blackScore + whiteScore >= boardSize * boardSize || validMoves.Count == 0)
+        // 보드가 가득 찼을 때
+        if (blackScore + whiteScore >= boardSize * boardSize)
         {
             EndGame();
         }
@@ -270,6 +364,7 @@ public class BoardManager : MonoBehaviour
     
     void EndGame()
     {
+        if (gameEnded) return; // 중복 실행 방지
         gameEnded = true;
         
         if (resultText != null)
@@ -355,7 +450,7 @@ public class BoardManager : MonoBehaviour
             {
                 // 랜덤하게 수를 둠
                 Vector2Int randomMove = validMoves[Random.Range(0, validMoves.Count)];
-                PlacePiece(randomMove.x, randomMove.y, isBlackTurn);
+                TryPlacePiece(randomMove.x, randomMove.y);
             }
         }
     }
@@ -368,7 +463,7 @@ public class BoardManager : MonoBehaviour
             // 2P 모드에서는 현재 턴에 맞는 플레이어만 수를 둘 수 있음
             if ((isBlackTurn && isPlayer1) || (!isBlackTurn && !isPlayer1))
             {
-                PlacePiece(x, y, isBlackTurn);
+                TryPlacePiece(x, y);
             }
         }
         else
@@ -376,74 +471,16 @@ public class BoardManager : MonoBehaviour
             // 1P vs CPU 모드에서는 1P만 수를 둘 수 있음
             if (isPlayer1 && isBlackTurn)
             {
-                PlacePiece(x, y, isBlackTurn);
+                TryPlacePiece(x, y);
             }
         }
     }
     
-    // 게임 모드에 따른 턴 표시 업데이트
-    void UpdateTurnDisplay()
-    {
-        if (turnText != null)
-        {
-            string turnInfo = "";
-            switch (GameData.Instance.GetGameMode())
-            {
-                case GameMode.PlayerVsCPU:
-                    turnInfo = isBlackTurn ? "1P 턴" : "CPU 턴";
-                    break;
-                case GameMode.PlayerVsPlayer:
-                    turnInfo = isBlackTurn ? "1P 턴" : "2P 턴";
-                    break;
-                case GameMode.CPUVsCPU:
-                    turnInfo = isBlackTurn ? "CPU1 턴" : "CPU2 턴";
-                    break;
-            }
-            turnText.text = turnInfo;
-        }
-    }
+    #endregion
     
-    // 유효한 수 하이라이트 표시
-    public void ShowHighlights(List<Vector2Int> positions, Sprite highlightSprite)
-    {
-        // 기존 하이라이트 제거
-        Transform[] existingHighlights = boardContainer.GetComponentsInChildren<Transform>();
-        foreach (Transform highlight in existingHighlights)
-        {
-            if (highlight.name.Contains("Highlight"))
-            {
-                Destroy(highlight.gameObject);
-            }
-        }
-        
-        // 새로운 하이라이트 추가
-        foreach (Vector2Int pos in positions)
-        {
-            if (IsValidPosition(pos.x, pos.y))
-            {
-                GameObject highlight = new GameObject("Highlight");
-                highlight.transform.SetParent(boardContainer);
-                highlight.transform.localPosition = new Vector3(pos.x, pos.y, -0.1f);
-                
-                SpriteRenderer sr = highlight.AddComponent<SpriteRenderer>();
-                sr.sprite = highlightSprite;
-                sr.color = new Color(1f, 1f, 1f, 0.5f);
-            }
-        }
-    }
-    
-    // 돌 배치 (GameManager에서 호출)
-    public void PlaceDisc(int x, int y, bool isBlack)
-    {
-        PlacePiece(x, y, isBlack);
-    }
-    
-    // 돌 뒤집기 (GameManager에서 호출)
-    public void FlipDisc(int x, int y)
-    {
-        if (IsValidPosition(x, y) && board[x, y].HasPiece())
-        {
-            board[x, y].Flip();
-        }
-    }
+    // ShowHighlights 메서드 삭제 (GameManager의 boardSelector로 대체)
+
+    // PlaceDisc는 GameManager.TryPlacePieceAt에서 이미 BoardManager.TryPlacePiece를 호출하므로,
+    // 중복되는 public 메서드인 PlaceDisc(int, int, bool)는 제거하거나 private으로 변경 가능.
+    // 여기서는 일단 유지하되, 향후 리팩토링 시 제거 고려.
 } 

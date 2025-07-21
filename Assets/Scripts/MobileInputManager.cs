@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
+// [ExecuteInEditMode] // 제거
 public class MobileInputManager : MonoBehaviour
 {
     public static MobileInputManager Instance { get; private set; }
@@ -187,7 +188,7 @@ public class MobileInputManager : MonoBehaviour
             if (x >= 0 && x < boardManager.boardSize && y >= 0 && y < boardManager.boardSize)
             {
                 // 돌 배치 시도
-                boardManager.PlacePiece(x, y, boardManager.IsBlackTurn());
+                boardManager.TryPlacePiece(x, y);
             }
         }
     }

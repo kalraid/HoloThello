@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+using System.Linq; // 해상도 검색을 위해 추가
 
 public class SettingsManager : MonoBehaviour
 {
@@ -20,179 +22,180 @@ public class SettingsManager : MonoBehaviour
     [Header("기타")]
     public Button backButton;
     
+    // 해상도 목록 (중복 제거)
+    private readonly string[] resolutions = {
+        "1920x1080", "1600x900", "1366x768", "1280x720", "1024x768"
+    };
+
+    #region Unity Lifecycle Methods
+    
     void Start()
     {
-        LoadSettings();
-        SetupUI();
+        if (!ValidateComponents())
+        {
+            enabled = false;
+            return;
+        }
+
+        LoadAndApplySettings();
+        InitializeUIValues();
+        RegisterEventListeners();
     }
-    
-    void LoadSettings()
+
+    #endregion
+
+    #region Initialization
+
+    bool ValidateComponents()
     {
-        // 설정값 로드
-        GameData.Instance.masterVolume = PlayerPrefs.GetFloat("MasterVolume", 1.0f);
-        GameData.Instance.bgmVolume = PlayerPrefs.GetFloat("BGMVolume", 0.8f);
-        GameData.Instance.sfxVolume = PlayerPrefs.GetFloat("SFXVolume", 1.0f);
-        GameData.Instance.isFullscreen = PlayerPrefs.GetInt("Fullscreen", 1) == 1;
-        GameData.Instance.screenWidth = PlayerPrefs.GetInt("ScreenWidth", 1920);
-        GameData.Instance.screenHeight = PlayerPrefs.GetInt("ScreenHeight", 1080);
-        
-        // 캐릭터 타입 설정 로드
-        int typeIndex = PlayerPrefs.GetInt("CharacterType", 0);
-        GameData.Instance.selectedCharacterType = (CharacterType)typeIndex;
+        if (masterVolumeSlider == null || bgmVolumeSlider == null || sfxVolumeSlider == null ||
+            fullscreenToggle == null || resolutionDropdown == null || typeAButton == null ||
+            typeBButton == null || typeLabel == null || backButton == null)
+        {
+            Debug.LogError("SettingsManager의 일부 UI 컴포넌트가 연결되지 않았습니다!");
+            return false;
+        }
+        if (GameData.Instance == null)
+        {
+            Debug.LogError("GameData.Instance가 없습니다. 씬에 GameData 오브젝트를 추가하세요.");
+            return false;
+        }
+        return true;
     }
-    
-    void SetupUI()
+
+    void LoadAndApplySettings()
     {
-        // 볼륨 슬라이더 설정
-        if (masterVolumeSlider != null)
-        {
-            masterVolumeSlider.value = GameData.Instance.masterVolume;
-            masterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
-        }
+        // PlayerPrefs에서 설정값 로드
+        GameData.Instance.LoadSettings();
+
+        // 로드된 설정값을 실제 게임에 적용
+        ApplyAudioSettings();
+        ApplyScreenSettings();
+    }
+
+    void InitializeUIValues()
+    {
+        // UI 컨트롤에 로드된 설정값 반영
+        masterVolumeSlider.value = GameData.Instance.masterVolume;
+        bgmVolumeSlider.value = GameData.Instance.bgmVolume;
+        sfxVolumeSlider.value = GameData.Instance.sfxVolume;
+        fullscreenToggle.isOn = GameData.Instance.isFullscreen;
         
-        if (bgmVolumeSlider != null)
-        {
-            bgmVolumeSlider.value = GameData.Instance.bgmVolume;
-            bgmVolumeSlider.onValueChanged.AddListener(OnBGMVolumeChanged);
-        }
-        
-        if (sfxVolumeSlider != null)
-        {
-            sfxVolumeSlider.value = GameData.Instance.sfxVolume;
-            sfxVolumeSlider.onValueChanged.AddListener(OnSFXVolumeChanged);
-        }
-        
-        // 전체화면 토글 설정
-        if (fullscreenToggle != null)
-        {
-            fullscreenToggle.isOn = GameData.Instance.isFullscreen;
-            fullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
-        }
-        
-        // 해상도 드롭다운 설정
-        if (resolutionDropdown != null)
-        {
-            SetupResolutionDropdown();
-        }
-        
-        // 캐릭터 타입 버튼 설정
-        if (typeAButton != null)
-        {
-            typeAButton.onClick.AddListener(OnTypeAButtonClicked);
-        }
-        
-        if (typeBButton != null)
-        {
-            typeBButton.onClick.AddListener(OnTypeBButtonClicked);
-        }
-        
-        // 돌아가기 버튼 설정
-        if (backButton != null)
-        {
-            backButton.onClick.AddListener(OnBackButtonClicked);
-        }
-        
+        SetupResolutionDropdown();
         UpdateTypeUI();
+    }
+
+    void RegisterEventListeners()
+    {
+        // 이벤트 리스너 등록 (중복 방지를 위해 기존 리스너 제거)
+        masterVolumeSlider.onValueChanged.RemoveAllListeners();
+        masterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
+
+        bgmVolumeSlider.onValueChanged.RemoveAllListeners();
+        bgmVolumeSlider.onValueChanged.AddListener(OnBGMVolumeChanged);
+
+        sfxVolumeSlider.onValueChanged.RemoveAllListeners();
+        sfxVolumeSlider.onValueChanged.AddListener(OnSFXVolumeChanged);
+
+        fullscreenToggle.onValueChanged.RemoveAllListeners();
+        fullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
+
+        resolutionDropdown.onValueChanged.RemoveAllListeners();
+        resolutionDropdown.onValueChanged.AddListener(OnResolutionChanged);
+
+        typeAButton.onClick.RemoveAllListeners();
+        typeAButton.onClick.AddListener(OnTypeAButtonClicked);
+
+        typeBButton.onClick.RemoveAllListeners();
+        typeBButton.onClick.AddListener(OnTypeBButtonClicked);
+
+        backButton.onClick.RemoveAllListeners();
+        backButton.onClick.AddListener(OnBackButtonClicked);
     }
     
     void SetupResolutionDropdown()
     {
         resolutionDropdown.ClearOptions();
+        resolutionDropdown.AddOptions(resolutions.ToList());
         
-        // 일반적인 해상도들 추가
-        string[] resolutions = {
-            "1920x1080",
-            "1600x900", 
-            "1366x768",
-            "1280x720",
-            "1024x768"
-        };
-        
-        resolutionDropdown.AddOptions(new System.Collections.Generic.List<string>(resolutions));
-        
-        // 현재 해상도 선택
         string currentRes = $"{GameData.Instance.screenWidth}x{GameData.Instance.screenHeight}";
         int currentIndex = System.Array.IndexOf(resolutions, currentRes);
         if (currentIndex >= 0)
         {
             resolutionDropdown.value = currentIndex;
         }
-        
-        resolutionDropdown.onValueChanged.AddListener(OnResolutionChanged);
+        else
+        {
+            // 목록에 없는 해상도일 경우 첫 번째 항목 선택
+            resolutionDropdown.value = 0;
+        }
     }
     
-    void UpdateTypeUI()
+    #endregion
+    
+    #region Settings Application
+
+    void ApplyAudioSettings()
     {
-        if (typeLabel != null)
+        if (AudioManager.Instance != null)
         {
-            typeLabel.text = GameData.Instance.selectedCharacterType == CharacterType.TypeA ? "Hololive 타입" : "고양이 타입";
-        }
-        
-        if (typeAButton != null)
-        {
-            typeAButton.interactable = GameData.Instance.selectedCharacterType != CharacterType.TypeA;
-        }
-        
-        if (typeBButton != null)
-        {
-            typeBButton.interactable = GameData.Instance.selectedCharacterType != CharacterType.TypeB;
+            AudioManager.Instance.SetMasterVolume(GameData.Instance.masterVolume);
+            AudioManager.Instance.SetBGMVolume(GameData.Instance.bgmVolume);
+            AudioManager.Instance.SetSFXVolume(GameData.Instance.sfxVolume);
         }
     }
+
+    void ApplyScreenSettings()
+    {
+        Screen.SetResolution(GameData.Instance.screenWidth, GameData.Instance.screenHeight, GameData.Instance.isFullscreen);
+    }
+
+    #endregion
+
+    #region UI Event Handlers
     
-    // 볼륨 설정 이벤트
     public void OnMasterVolumeChanged(float value)
     {
         GameData.Instance.masterVolume = value;
+        ApplyAudioSettings();
         GameData.Instance.SaveSettings();
     }
     
     public void OnBGMVolumeChanged(float value)
     {
         GameData.Instance.bgmVolume = value;
+        ApplyAudioSettings();
         GameData.Instance.SaveSettings();
     }
     
     public void OnSFXVolumeChanged(float value)
     {
         GameData.Instance.sfxVolume = value;
+        ApplyAudioSettings();
         GameData.Instance.SaveSettings();
     }
     
-    // 화면 설정 이벤트
     public void OnFullscreenChanged(bool isFullscreen)
     {
         GameData.Instance.isFullscreen = isFullscreen;
-        Screen.fullScreen = isFullscreen;
+        ApplyScreenSettings();
         GameData.Instance.SaveSettings();
     }
     
     public void OnResolutionChanged(int index)
     {
-        string[] resolutions = {
-            "1920x1080",
-            "1600x900", 
-            "1366x768",
-            "1280x720",
-            "1024x768"
-        };
+        if (index < 0 || index >= resolutions.Length) return;
         
-        if (index >= 0 && index < resolutions.Length)
+        string[] parts = resolutions[index].Split('x');
+        if (parts.Length == 2 && int.TryParse(parts[0], out int width) && int.TryParse(parts[1], out int height))
         {
-            string[] parts = resolutions[index].Split('x');
-            if (parts.Length == 2)
-            {
-                int width = int.Parse(parts[0]);
-                int height = int.Parse(parts[1]);
-                
-                GameData.Instance.screenWidth = width;
-                GameData.Instance.screenHeight = height;
-                
-                Screen.SetResolution(width, height, GameData.Instance.isFullscreen);
-                GameData.Instance.SaveSettings();
-            }
+            GameData.Instance.screenWidth = width;
+            GameData.Instance.screenHeight = height;
+            ApplyScreenSettings();
+            GameData.Instance.SaveSettings();
         }
     }
-    
+
     // 캐릭터 타입 설정 이벤트
     public void OnTypeAButtonClicked()
     {
@@ -212,4 +215,24 @@ public class SettingsManager : MonoBehaviour
         GameData.Instance.SaveSettings();
         UnityEngine.SceneManagement.SceneManager.LoadScene("MainScene");
     }
+
+    void UpdateTypeUI()
+    {
+        if (typeLabel != null)
+        {
+            typeLabel.text = GameData.Instance.selectedCharacterType == CharacterType.TypeA ? "Hololive 타입" : "고양이 타입";
+        }
+        
+        if (typeAButton != null)
+        {
+            typeAButton.interactable = GameData.Instance.selectedCharacterType != CharacterType.TypeA;
+        }
+        
+        if (typeBButton != null)
+        {
+            typeBButton.interactable = GameData.Instance.selectedCharacterType != CharacterType.TypeB;
+        }
+    }
+
+    #endregion
 } 

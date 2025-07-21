@@ -34,16 +34,23 @@ public class MainMenuManager : MonoBehaviour
 
     public void OnClickStart()
     {
-        SceneManager.LoadScene("CharacterSelectScene");
+        Debug.Log("[MainMenuManager] OnClickStart 호출됨 - CharacterSelectScene으로 이동 시도");
+        SceneManager.LoadScene("CharacterSelectScene", LoadSceneMode.Single);
     }
 
     public void OnClickSettings()
     {
-        SceneManager.LoadScene("SettingsScene");
+        Debug.Log("[MainMenuManager] OnClickSettings 호출됨 - SettingsScene으로 이동 시도");
+        SceneManager.LoadScene("SettingsScene", LoadSceneMode.Single);
     }
 
     public void OnClickExit()
     {
+        Debug.Log("[MainMenuManager] OnClickExit 호출됨 - 게임 종료 시도");
+#if UNITY_EDITOR
+        Debug.Log("[MainMenuManager] (에디터 환경에서는 종료되지 않습니다)");
+#else
         Application.Quit();
+#endif
     }
 } 
