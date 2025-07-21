@@ -97,6 +97,70 @@ public class UnityTestRunner : MonoBehaviour
         EditorUtility.DisplayDialog("완료", "설정 및 테스트가 완료되었습니다!", "확인");
     }
     
+    [MenuItem("Tools/Test: CPU vs CPU 자동대전")]
+    public static void TestCPUVsCPUBattle()
+    {
+        // 플레이 모드 중에는 실행하지 않음
+        if (Application.isPlaying)
+        {
+            Debug.LogWarning("플레이 모드 중에는 테스트 씬을 설정할 수 없습니다.");
+            return;
+        }
+        
+        Debug.Log("=== CPU vs CPU 자동대전 테스트 시작 ===");
+
+        // 1. GameScene을 먼저 엽니다.
+        var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/GameScene.unity");
+
+        // 2. GameData 인스턴스 확보 또는 생성 (씬이 열린 후)
+        GameData gameData = Object.FindFirstObjectByType<GameData>();
+        if (gameData == null)
+        {
+            GameObject go = new GameObject("GameData");
+            gameData = go.AddComponent<GameData>();
+            Debug.Log("GameData 오브젝트를 새로 생성했습니다.");
+        }
+
+        // 3. 모드 설정
+        gameData.SetGameMode(GameMode.CPUVsCPU);
+        gameData.selectedCharacterType = CharacterType.TypeA;
+        gameData.isFirstTurnDetermined = true;
+        gameData.isPlayer1First = true;
+        gameData.diceResult1P = 3;
+        gameData.diceResult2P = 2;
+
+        // 3. 캐릭터 데이터 생성 및 스킬 커스텀
+        CharacterData cpu1 = new CharacterData();
+        cpu1.characterName = "CPU1";
+        cpu1.characterType = CharacterType.TypeA;
+        cpu1.characterIndex = 0;
+        cpu1.skillA = new SkillData { skillName = "A", skillDescription = "1 데미지", cooldown = 1, damage = 1, isUltimate = false };
+        cpu1.skillB = new SkillData { skillName = "B", skillDescription = "5 데미지", cooldown = 1, damage = 5, isUltimate = false };
+        cpu1.ultimateA = new SkillData { skillName = "궁극기", skillDescription = "상대 턴 넘기기", cooldown = 1, damage = 0, isUltimate = true };
+
+        CharacterData cpu2 = new CharacterData();
+        cpu2.characterName = "CPU2";
+        cpu2.characterType = CharacterType.TypeB;
+        cpu2.characterIndex = 0;
+        cpu2.skillA = new SkillData { skillName = "A", skillDescription = "1 회복", cooldown = 1, damage = -1, isUltimate = false };
+        cpu2.skillB = new SkillData { skillName = "B", skillDescription = "5 회복", cooldown = 1, damage = -5, isUltimate = false };
+        cpu2.ultimateA = new SkillData { skillName = "궁극기", skillDescription = "돌 하나 삭제 후 그 자리에 놓기", cooldown = 1, damage = 0, isUltimate = true };
+
+        gameData.selectedCharacter1P = cpu1;
+        gameData.selectedCharacterCPU = cpu2;
+        gameData.playerCharacterIdx = 0;
+        gameData.cpuCharacterIdx = 0;
+        gameData.backgroundIdx = 0;
+
+        // 4. 씬을 저장하여 변경사항을 반영합니다.
+        UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene);
+        Debug.Log("테스트 설정이 완료된 GameScene을 저장했습니다.");
+
+        Debug.Log("=== CPU vs CPU 자동대전 테스트 준비 완료, 자동으로 플레이 모드를 시작합니다. ===");
+        // EditorUtility.DisplayDialog("테스트 준비 완료", "GameScene에서 CPU vs CPU 자동대전이 시작됩니다!", "확인");
+        UnityEditor.EditorApplication.isPlaying = true;
+    }
+    
     private static bool ValidateScenes()
     {
         Debug.Log("씬 검증 중...");

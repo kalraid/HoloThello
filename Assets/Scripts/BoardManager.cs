@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using System.Collections; // 코루틴을 사용하기 위해 추가
 
 public class BoardManager : MonoBehaviour
 {
@@ -71,9 +72,16 @@ public class BoardManager : MonoBehaviour
                 GameObject discObj = Instantiate(discPrefab, boardContainer);
                 discObj.transform.localPosition = new Vector3(x, y, 0);
                 Disc disc = discObj.GetComponent<Disc>();
+                if (disc == null)
+                {
+                    Debug.LogError($"[InitializeBoard] Disc 프리팹에 Disc 컴포넌트가 없습니다! ({x},{y})");
+                }
+                else
+                {
+                    Debug.Log($"[InitializeBoard] board[{x},{y}]에 Disc 할당 완료");
+                }
                 disc.Initialize(x, y, this);
                 // 빈 칸: SetDisc(false, null)로 초기화
-                disc.SetDisc(false, null);
                 board[x, y] = disc;
             }
         }
@@ -112,11 +120,14 @@ public class BoardManager : MonoBehaviour
 
         // 1. 돌 배치 및 뒤집기
         SetDiscOnBoard(x, y, isBlackTurn);
-        FlipPieces(x, y, isBlackTurn);
+        board[x, y].AnimatePlace(); // 돌 놓기 애니메이션 추가
+        StartCoroutine(FlipPiecesWithEffect(x, y, isBlackTurn));
 
-        // 2. 턴 변경
-        SwitchTurn();
-        
+        // 로그: 일반 수 두기
+        GameManager gm = FindFirstObjectByType<GameManager>();
+        if (gm != null) gm.LogMove(x, y);
+
+        // 2. 턴 전환은 코루틴에서 애니메이션 끝난 후 처리
         return true;
     }
 
@@ -134,7 +145,12 @@ public class BoardManager : MonoBehaviour
     
     void SwitchTurn()
     {
+        // 턴 종료 로그
+        GameManager gm = FindFirstObjectByType<GameManager>();
+        if (gm != null) gm.LogTurnEnd();
         isBlackTurn = !isBlackTurn;
+        // 턴 시작 로그
+        if (gm != null) gm.LogTurnStart();
         UpdateTurn();
     }
 
@@ -233,6 +249,12 @@ public class BoardManager : MonoBehaviour
 
     public bool IsValidMove(int x, int y, bool isBlack)
     {
+        if (!IsValidPosition(x, y)) return false; // 좌표 유효성 먼저 체크
+        if (board[x, y] == null)
+        {
+            Debug.LogError($"[IsValidMove] board[{x},{y}]가 null입니다!");
+            return false;
+        }
         if (board[x, y].HasPiece())
             return false;
             
@@ -254,78 +276,139 @@ public class BoardManager : MonoBehaviour
         int x = startX + dx;
         int y = startY + dy;
         
+        if (!IsValidPosition(x, y)) return false;
+        
         // 첫 번째 칸이 상대방 돌이어야 함
-        if (!IsValidPosition(x, y) || !board[x, y].HasPiece() || board[x, y].IsBlack() == isBlack)
+        if (board[x, y] == null || !board[x, y].HasPiece() || board[x, y].IsBlack() == isBlack)
             return false;
             
         // 연속된 상대방 돌 확인
-        while (IsValidPosition(x, y) && board[x, y].HasPiece() && board[x, y].IsBlack() != isBlack)
+        x += dx;
+        y += dy;
+        while (IsValidPosition(x, y))
         {
+            if (board[x, y] == null || !board[x, y].HasPiece()) return false;
+            if (board[x, y].IsBlack() == isBlack) return true; // 마지막에 자신의 돌을 찾음
             x += dx;
             y += dy;
         }
         
-        // 마지막에 자신의 돌이 있어야 함
-        return IsValidPosition(x, y) && board[x, y].HasPiece() && board[x, y].IsBlack() == isBlack;
+        return false; // 경계를 벗어남
     }
     
-    void FlipPieces(int startX, int startY, bool isBlack)
+    // 기존 FlipPieces/FlipInDirection은 사용하지 않고, 아래 코루틴으로 대체
+    private IEnumerator FlipPiecesWithEffect(int startX, int startY, bool isBlack)
     {
         int[] dx = { -1, -1, -1, 0, 0, 1, 1, 1 };
         int[] dy = { -1, 0, 1, -1, 1, -1, 0, 1 };
-        
+        List<Disc> allToFlip = new List<Disc>();
+        List<int> flipCounts = new List<int>();
         for (int i = 0; i < 8; i++)
         {
-            FlipInDirection(startX, startY, dx[i], dy[i], isBlack);
+            List<Disc> toFlip = GetFlippableDiscsInDirection(startX, startY, dx[i], dy[i], isBlack);
+            if (toFlip.Count > 0)
+            {
+                allToFlip.AddRange(toFlip);
+                flipCounts.Add(toFlip.Count);
+            }
         }
+        // 가까운 순서대로(거리순) 정렬
+        allToFlip.Sort((a, b) =>
+        {
+            float da = Vector2Int.Distance(new Vector2Int(startX, startY), new Vector2Int(a.X, a.Y));
+            float db = Vector2Int.Distance(new Vector2Int(startX, startY), new Vector2Int(b.X, b.Y));
+            return da.CompareTo(db);
+        });
+        // 하나씩 0.08초 간격으로 뒤집기
+        foreach (Disc disc in allToFlip)
+        {
+            disc.Flip();
+            disc.AnimateFlip();
+            yield return new WaitForSeconds(0.08f);
+        }
+        // 뒤집은 개수 및 데미지 계산
+        int totalFlipped = allToFlip.Count;
+        int damage = totalFlipped;
+        int multiplierCount = 0;
+        if (totalFlipped >= 5)
+        {
+            multiplierCount = totalFlipped / 5;
+            float multiplier = Mathf.Pow(1.2f, multiplierCount);
+            damage = Mathf.RoundToInt(totalFlipped * multiplier);
+        }
+        // 데미지 적용 및 로그
+        if (totalFlipped > 0)
+        {
+            GameManager gm = FindFirstObjectByType<GameManager>();
+            if (gm != null)
+            {
+                if (isBlack)
+                {
+                    gm.ApplyDamageToCPU(damage);
+                    Debug.Log($"CPU1이 돌 {totalFlipped}개를 뒤집어 CPU2에게 {damage} 데미지! CPU2 HP: {gm.cpuHp}/10000");
+                    if (multiplierCount > 0 && EffectManager.Instance != null)
+                        EffectManager.Instance.ShowSpecialEffect(multiplierCount, false, damage, gm.cpuHp, 10000);
+                }
+                else
+                {
+                    gm.ApplyDamageToPlayer1(damage);
+                    Debug.Log($"CPU2가 돌 {totalFlipped}개를 뒤집어 CPU1에게 {damage} 데미지! CPU1 HP: {gm.playerHp}/10000");
+                    if (multiplierCount > 0 && EffectManager.Instance != null)
+                        EffectManager.Instance.ShowSpecialEffect(multiplierCount, true, damage, gm.playerHp, 10000);
+                }
+            }
+        }
+        else
+        {
+            Debug.Log($"뒤집힌 돌 없음");
+        }
+        // 턴 전환
+        SwitchTurn();
     }
-    
-    void FlipInDirection(int startX, int startY, int dx, int dy, bool isBlack)
+
+    // 각 방향별 뒤집을 돌 리스트 반환
+    private List<Disc> GetFlippableDiscsInDirection(int startX, int startY, int dx, int dy, bool isBlack)
     {
         List<Disc> toFlip = new List<Disc>();
         int x = startX + dx;
         int y = startY + dy;
-        
-        // 연속된 상대방 돌 수집
-        while (IsValidPosition(x, y) && board[x, y].HasPiece() && board[x, y].IsBlack() != isBlack)
+        while (IsValidPosition(x, y) && board[x, y] != null && board[x, y].HasPiece() && board[x, y].IsBlack() != isBlack)
         {
             toFlip.Add(board[x, y]);
             x += dx;
             y += dy;
         }
-        
-        // 마지막에 자신의 돌이 있으면 뒤집기
-        if (IsValidPosition(x, y) && board[x, y].HasPiece() && board[x, y].IsBlack() == isBlack)
+        if (IsValidPosition(x, y) && board[x, y] != null && board[x, y].HasPiece() && board[x, y].IsBlack() == isBlack)
         {
-            foreach (Disc disc in toFlip)
-            {
-                disc.Flip();
-            }
+            return toFlip;
         }
+        return new List<Disc>(); // 뒤집을 수 없는 경우 빈 리스트 반환
     }
     
-    void UpdateValidMoves()
+    // 헬퍼: 특정 턴에서 validMoves 계산
+    void CalculateValidMoves(bool turn)
     {
         validMoves.Clear();
-        
         for (int x = 0; x < boardSize; x++)
         {
             for (int y = 0; y < boardSize; y++)
             {
-                if (IsValidMove(x, y, isBlackTurn))
+                if (IsValidMove(x, y, turn))
                 {
                     validMoves.Add(new Vector2Int(x, y));
                 }
             }
         }
-        
+    }
+
+    void UpdateValidMoves()
+    {
+        CalculateValidMoves(isBlackTurn);
         // 유효한 수가 없으면 턴 스킵
         if (validMoves.Count == 0)
         {
             isBlackTurn = !isBlackTurn;
-            UpdateValidMoves();
-            
-            // 양쪽 모두 수가 없으면 게임 종료
+            CalculateValidMoves(isBlackTurn);
             if (validMoves.Count == 0)
             {
                 EndGame();
@@ -448,9 +531,9 @@ public class BoardManager : MonoBehaviour
             List<Vector2Int> validMoves = GetValidMoves(isBlackTurn);
             if (validMoves.Count > 0)
             {
-                // 랜덤하게 수를 둠
                 Vector2Int randomMove = validMoves[Random.Range(0, validMoves.Count)];
                 TryPlacePiece(randomMove.x, randomMove.y);
+                // 로그는 TryPlacePiece에서 자동으로 남음
             }
         }
     }

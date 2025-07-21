@@ -230,9 +230,12 @@ public class AudioManager : MonoBehaviour
     }
     
     // 스킬 사용 사운드
-    public void PlaySkillUse()
+    public void PlaySkillUse(int level = 1)
     {
+        float origVolume = sfxSource.volume;
+        sfxSource.volume = Mathf.Clamp01(origVolume * (1f + 0.2f * level));
         PlaySFX(skillUseSfx);
+        sfxSource.volume = origVolume;
     }
     
     // 데미지 사운드

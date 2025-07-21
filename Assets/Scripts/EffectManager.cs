@@ -350,6 +350,90 @@ public class EffectManager : MonoBehaviour
         Destroy(specialEffect);
     }
 
+    public void ShowSpecialEffect(int level, bool isPlayer1, int damage, int hp, int maxHp)
+    {
+        // 1. 파티클/이펙트
+        for (int i = 0; i < level; i++)
+        {
+            if (skillEffectPrefab != null && effectCanvas != null)
+            {
+                Vector3 pos = isPlayer1 ? player1Animator.transform.position : cpuAnimator.transform.position;
+                GameObject fx = Instantiate(skillEffectPrefab, pos, Quaternion.identity, effectCanvas);
+                float scale = 1f + 0.3f * i;
+                fx.transform.localScale = Vector3.one * scale;
+                Destroy(fx, 1.5f);
+            }
+        }
+        // 2. 화면 흔들림
+        if (level >= 2)
+        {
+            CameraShake(level);
+        }
+        // 3. 사운드 볼륨 증가
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySkillUse(level);
+        }
+        // 4. HP바 진동/깜빡임
+        Slider hpBar = isPlayer1 ? player1Animator.GetComponentInChildren<Slider>() : cpuAnimator.GetComponentInChildren<Slider>();
+        if (hpBar != null)
+        {
+            StartCoroutine(FlashHealthBarSpecial(hpBar, level));
+        }
+        // 5. 데미지 텍스트 강조
+        Vector3 hpBarPos = hpBar != null ? hpBar.transform.position : Vector3.zero;
+        ShowDamageEffectSpecial(hpBarPos, damage, level, hp, maxHp);
+    }
+
+    private void CameraShake(int level)
+    {
+        // 간단한 화면 흔들림 (진폭, 시간 증가)
+        Camera mainCam = Camera.main;
+        if (mainCam != null)
+        {
+            StartCoroutine(CameraShakeCoroutine(mainCam, 0.1f * level, 0.15f + 0.05f * level));
+        }
+    }
+    private IEnumerator CameraShakeCoroutine(Camera cam, float magnitude, float duration)
+    {
+        Vector3 origPos = cam.transform.position;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            float x = Random.Range(-1f, 1f) * magnitude;
+            float y = Random.Range(-1f, 1f) * magnitude;
+            cam.transform.position = origPos + new Vector3(x, y, 0);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        cam.transform.position = origPos;
+    }
+    private IEnumerator FlashHealthBarSpecial(Slider healthBar, int level)
+    {
+        Image fillImage = healthBar.fillRect.GetComponent<Image>();
+        Color origColor = fillImage.color;
+        for (int i = 0; i < 2 + level; i++)
+        {
+            fillImage.color = Color.yellow;
+            yield return new WaitForSeconds(0.08f);
+            fillImage.color = origColor;
+            yield return new WaitForSeconds(0.08f);
+        }
+    }
+    public void ShowDamageEffectSpecial(Vector3 position, int damage, int level, int hp, int maxHp)
+    {
+        GameObject effectObject = GetPooledObject("DamageText", position);
+        if (effectObject == null) return;
+        Text textComponent = effectObject.GetComponent<Text>();
+        if (textComponent != null)
+        {
+            textComponent.text = $"{damage} {(level > 0 ? "CRITICAL!" : "")}\nHP: {hp}/{maxHp}";
+            textComponent.color = level >= 2 ? Color.red : (level == 1 ? new Color(1f,0.5f,0f) : Color.white);
+            textComponent.fontSize = 18 + 6 * level;
+        }
+        StartCoroutine(AnimateAndReturn(effectObject, "DamageText", 1.2f + 0.2f * level));
+    }
+
     #endregion
 }
 

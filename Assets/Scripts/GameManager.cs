@@ -156,10 +156,49 @@ public class GameManager : MonoBehaviour
         if (playerHpBar != null)
         {
             playerHpBar.value = playerHp;
+            if (playerHpBar.fillRect != null)
+            {
+                Image fill = playerHpBar.fillRect.GetComponent<Image>();
+                if (fill != null) fill.color = new Color(0.9f, 0.1f, 0.1f, 1f);
+            }
+            // fill 이미지를 빨간색으로
+            AddHpBarSegments(playerHpBar);
         }
         if (cpuHpBar != null)
         {
             cpuHpBar.value = cpuHp;
+            if (cpuHpBar.fillRect != null)
+            {
+                Image fill = cpuHpBar.fillRect.GetComponent<Image>();
+                if (fill != null) fill.color = new Color(0.9f, 0.1f, 0.1f, 1f);
+            }
+            AddHpBarSegments(cpuHpBar);
+        }
+    }
+
+    // HP바 위에 10개의 흰색 세로선(구분선) 추가
+    void AddHpBarSegments(Slider hpBar)
+    {
+        Transform segParent = hpBar.transform.Find("Segments");
+        if (segParent == null)
+        {
+            GameObject segObj = new GameObject("Segments");
+            segObj.transform.SetParent(hpBar.transform, false);
+            segParent = segObj.transform;
+        }
+        // 이미 세그먼트가 있으면 중복 생성 방지
+        if (segParent.childCount >= 9) return;
+        // 9개(10구간) 세로선 생성
+        for (int i = 1; i < 10; i++)
+        {
+            GameObject line = new GameObject($"Segment_{i}");
+            line.transform.SetParent(segParent, false);
+            RectTransform rt = line.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(i / 10f, 0f);
+            rt.anchorMax = new Vector2(i / 10f, 1f);
+            rt.sizeDelta = new Vector2(2f, 0f);
+            Image img = line.AddComponent<Image>();
+            img.color = Color.white;
         }
     }
 
@@ -171,6 +210,53 @@ public class GameManager : MonoBehaviour
     public GameObject boardSelector; // 보드 위 커서 오브젝트
     public Text controlsInfoText; // 조작 안내 텍스트
     private Vector2Int selectorPosition = new Vector2Int(0, 0);
+
+    private int turnCount = 1;
+    private bool lastWasSkill = false;
+    private string lastAction = "";
+    private string lastSkillName = "";
+    private Vector2Int lastMove = new Vector2Int(-1, -1);
+    
+    // 턴 시작 로그
+    public void LogTurnStart()
+    {
+        string player = boardManager.IsBlackTurn() ? "CPU1(흑)" : "CPU2(백)";
+        Debug.Log($"[턴 {turnCount}] {player}의 턴 시작");
+    }
+
+    // 일반 수 두기 로그
+    public void LogMove(int x, int y)
+    {
+        string player = boardManager.IsBlackTurn() ? "CPU1(흑)" : "CPU2(백)";
+        Debug.Log($"[턴 {turnCount}] {player} - 일반 수 ({x}, {y})");
+        lastAction = "일반 수";
+        lastMove = new Vector2Int(x, y);
+        lastWasSkill = false;
+        lastSkillName = "";
+    }
+
+    // 스킬 사용 로그
+    public void LogSkill(string skillName, bool isUltimate)
+    {
+        string player = boardManager.IsBlackTurn() ? "CPU1(흑)" : "CPU2(백)";
+        string type = isUltimate ? "궁극기" : "스킬";
+        Debug.Log($"[턴 {turnCount}] {player} - {type} 사용: {skillName}");
+        lastAction = type;
+        lastWasSkill = true;
+        lastSkillName = skillName;
+    }
+
+    // 턴 종료 로그
+    public void LogTurnEnd()
+    {
+        string player = boardManager.IsBlackTurn() ? "CPU1(흑)" : "CPU2(백)";
+        Debug.Log($"[턴 {turnCount}] 종료: {player}의 행동: {lastAction} {(lastWasSkill ? lastSkillName : $"({lastMove.x}, {lastMove.y})")}");
+        turnCount++;
+    }
+
+    // BoardManager에서 일반 수 두기 시 호출하도록 TryPlacePiece 등에서 LogMove 호출
+    // 스킬/궁극기 사용 시 LogSkill 호출
+    // 턴 시작/종료 시 LogTurnStart/LogTurnEnd 호출
 
     #region Unity Lifecycle Methods
 
@@ -205,15 +291,22 @@ public class GameManager : MonoBehaviour
             boardSelector.SetActive(true);
             UpdateSelectorPosition();
         }
+
+        // 턴 시작 시 자동 로그
+        LogTurnStart();
     }
 
     void Update()
     {
         if (currentState != GameState.Playing) return; // 게임 진행 중이 아니면 Update 로직 실행 안함
 
-        // --- 입력 처리 ---
-        HandleKeyboardInput();
-        HandleMouseInput();
+        // CPU vs CPU 모드가 아닐 때만 플레이어 입력 처리
+        if (GameData.Instance != null && !GameData.Instance.IsCPUVsCPUMode())
+        {
+            // --- 입력 처리 ---
+            HandleKeyboardInput();
+            HandleMouseInput();
+        }
 
         // 타이머 업데이트
         UpdateTimers();
@@ -239,21 +332,37 @@ public class GameManager : MonoBehaviour
     #region Game Flow
     System.Collections.IEnumerator CPUVsCPUGameLoop()
     {
-        if (boardManager == null) yield break;
+        Debug.Log("CPUVsCPUGameLoop: 코루틴이 시작되었습니다.");
+        yield return null; // 모든 Start() 메서드가 완료될 때까지 한 프레임 대기
+
+        if (boardManager == null)
+        {
+            Debug.LogError("CPUVsCPUGameLoop: BoardManager가 할당되지 않았습니다!");
+            yield break;
+        }
         
+        // 게임이 끝날 때까지 1초 간격으로 대기
         while (!boardManager.IsGameEnded())
         {
+            Debug.Log("CPUVsCPUGameLoop: AI의 턴을 진행합니다.");
             boardManager.MakeAIMove();
             yield return new WaitForSeconds(1.0f);
         }
+    
+        Debug.Log("CPUVsCPUGameLoop: 게임 루프가 종료되었습니다 (게임 끝).");
     }
     
     void InitializeGameMode()
     {
-        if (GameData.Instance == null) return;
-        
+        if (GameData.Instance == null)
+        {
+            Debug.LogError("InitializeGameMode: GameData.Instance가 null입니다! 게임 모드를 확인할 수 없습니다.");
+            return;
+        }
+
         GameMode currentMode = GameData.Instance.GetGameMode();
-        
+        Debug.Log($"InitializeGameMode: 현재 게임 모드는 '{currentMode}' 입니다.");
+
         switch (currentMode)
         {
             case GameMode.PlayerVsCPU:
@@ -263,7 +372,7 @@ public class GameManager : MonoBehaviour
                 Debug.Log("1P vs 2P 모드 시작");
                 break;
             case GameMode.CPUVsCPU:
-                Debug.Log("CPU vs CPU 모드 시작");
+                Debug.Log("CPU vs CPU 모드 시작. 코루틴을 실행합니다.");
                 StartCoroutine(CPUVsCPUGameLoop()); // 삭제되었던 코루틴 호출 복구
                 break;
         }
@@ -357,8 +466,9 @@ public class GameManager : MonoBehaviour
     // 각 메서드 내부에서도 사용하는 컴포넌트에 대해 null 체크를 강화하면 더 안전해집니다.
 
     // 예시: ApplyDamageToPlayer1 메서드 보완
-    void ApplyDamageToPlayer1(int damage)
+    public void ApplyDamageToPlayer1(int damage)
     {
+        int prevHp = playerHp;
         playerHp -= damage;
         if (playerHp < 0) playerHp = 0;
         
@@ -376,13 +486,17 @@ public class GameManager : MonoBehaviour
             AudioManager.Instance.PlayDamage();
         }
         
-        Debug.Log($"1P 데미지: {damage}, 남은 HP: {playerHp}");
+        if (damage > 0)
+            Debug.Log($"CPU2가 {damage} 데미지를 주었습니다! CPU1 HP: {playerHp}/{prevHp}");
+        else if (damage < 0)
+            Debug.Log($"CPU1이 {-damage} 회복! CPU1 HP: {playerHp}/{prevHp}");
         CheckGameEnd(); // 데미지를 입은 후 게임 종료 여부 확인
     }
 
     // 예시: ApplyDamageToCPU 메서드 보완
-    void ApplyDamageToCPU(int damage)
+    public void ApplyDamageToCPU(int damage)
     {
+        int prevHp = cpuHp;
         cpuHp -= damage;
         if (cpuHp < 0) cpuHp = 0;
         
@@ -400,7 +514,10 @@ public class GameManager : MonoBehaviour
             AudioManager.Instance.PlayDamage();
         }
         
-        Debug.Log($"CPU 데미지: {damage}, 남은 HP: {cpuHp}");
+        if (damage > 0)
+            Debug.Log($"CPU1이 {damage} 데미지를 주었습니다! CPU2 HP: {cpuHp}/{prevHp}");
+        else if (damage < 0)
+            Debug.Log($"CPU2가 {-damage} 회복! CPU2 HP: {cpuHp}/{prevHp}");
         CheckGameEnd(); // 데미지를 입은 후 게임 종료 여부 확인
     }
     
@@ -548,6 +665,13 @@ public class GameManager : MonoBehaviour
             SkillData skill = GetSkillData(currentChar, skillIndex);
             if (skill != null)
             {
+                // 궁극기 효과 분기
+                if (skill.isUltimate && SkillManager.Instance != null)
+                {
+                    SkillManager.Instance.Ultimate_SkipOpponentTurn(this);
+                }
+                // 로그: 스킬/궁극기 사용
+                LogSkill(skill.skillName, skill.isUltimate);
                 // 스킬 이펙트
                 if (EffectManager.Instance != null)
                 {
@@ -701,6 +825,55 @@ public class GameManager : MonoBehaviour
         }
         
         UpdateAllUI();
+    }
+
+    // 궁극기: 상대 턴 넘기기
+    public void SkipOpponentTurn()
+    {
+        // 현재 턴을 한 번 더 진행(상대 턴을 건너뜀)
+        // 예: 턴을 바꾸지 않고 다시 AI/플레이어가 둠
+        Debug.Log("궁극기: 상대 턴 넘기기 발동!");
+        // 아무 것도 하지 않으면 현재 턴이 유지됨(자동 진행)
+        // 필요시 이펙트/메시지 추가
+    }
+
+    // CPU 궁극기 효과도 처리
+    public void UseCPUSkill(int skillIndex)
+    {
+        if (skillIndex < 0 || skillIndex >= 3) return;
+        if (cpuSkillCooldowns[skillIndex] > 0 || cpuSkillUsed[skillIndex]) return;
+        CharacterData cpuChar = GameData.Instance.selectedCharacterCPU;
+        if (cpuChar != null)
+        {
+            SkillData skill = GetSkillData(cpuChar, skillIndex);
+            if (skill != null)
+            {
+                if (skill.isUltimate && SkillManager.Instance != null)
+                {
+                    SkillManager.Instance.Ultimate_RemoveAndPlace(this, boardManager);
+                }
+                // 로그: 스킬/궁극기 사용
+                LogSkill(skill.skillName, skill.isUltimate);
+                // 이펙트/사운드/회복 등
+                if (EffectManager.Instance != null)
+                {
+                    Vector3 effectPosition = transform.position;
+                    EffectManager.Instance.ShowSkillEffect(effectPosition, skill.skillName);
+                }
+                if (AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.PlaySkillUse();
+                }
+                if (EffectManager.Instance != null)
+                {
+                    EffectManager.Instance.PlayCharacterAnimation(false, "Attack");
+                }
+                ApplyDamageToPlayer1(skill.damage); // 회복은 음수 데미지
+                cpuSkillCooldowns[skillIndex] = skill.cooldown;
+                if (skill.isUltimate) cpuSkillUsed[skillIndex] = true;
+                Debug.Log($"CPU {skill.skillName} 발동!");
+            }
+        }
     }
 
     void HandleKeyboardInput()
