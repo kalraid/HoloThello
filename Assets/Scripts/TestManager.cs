@@ -1,408 +1,580 @@
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class TestManager : MonoBehaviour
 {
-    public static TestManager Instance { get; private set; }
+    [Header("테스트 UI")]
+    public Text testResultText;
+    public Button runAllTestsButton;
+    public Button clearTestButton;
     
-    [Header("테스트 설정")]
-    public bool enableDebugMode = false;
-    public bool enablePerformanceMonitoring = false;
-    public bool enableErrorLogging = true;
+    [Header("기능별 테스트 버튼")]
+    public Button testDiscButton;
+    public Button testHPButton;
+    public Button testSkillButton;
+    public Button testDamageButton;
+    public Button testGameEndButton;
+    public Button testHPBarButton;
+    public Button testPrefabButton;
+    public Button testPerformanceButton;
+    public Button testCharacterButton;
+    public Button testBoardButton;
+    public Button testAudioButton;
+    public Button testMobileButton;
     
-    [Header("성능 모니터링")]
-    public Text fpsText;
-    public Text memoryText;
-    public Text errorText;
+    private string testResults = "";
     
-    private List<string> errorLog = new List<string>();
-    private float fpsUpdateTimer = 0f;
-    private int frameCount = 0;
-    private float currentFPS = 0f;
-    
-    void Awake()
+    void Start()
     {
-        if (Instance == null)
+        // 전체 테스트 버튼
+        if (runAllTestsButton != null)
+            runAllTestsButton.onClick.AddListener(RunAllTests);
+        
+        if (clearTestButton != null)
+            clearTestButton.onClick.AddListener(ClearTestResults);
+        
+        // 기능별 테스트 버튼
+        if (testDiscButton != null)
+            testDiscButton.onClick.AddListener(() => RunSingleTest("Disc"));
+        if (testHPButton != null)
+            testHPButton.onClick.AddListener(() => RunSingleTest("HP"));
+        if (testSkillButton != null)
+            testSkillButton.onClick.AddListener(() => RunSingleTest("Skill"));
+        if (testDamageButton != null)
+            testDamageButton.onClick.AddListener(() => RunSingleTest("Damage"));
+        if (testGameEndButton != null)
+            testGameEndButton.onClick.AddListener(() => RunSingleTest("GameEnd"));
+        if (testHPBarButton != null)
+            testHPBarButton.onClick.AddListener(() => RunSingleTest("HPBar"));
+        if (testPrefabButton != null)
+            testPrefabButton.onClick.AddListener(() => RunSingleTest("Prefab"));
+        if (testPerformanceButton != null)
+            testPerformanceButton.onClick.AddListener(() => RunSingleTest("Performance"));
+        if (testCharacterButton != null)
+            testCharacterButton.onClick.AddListener(() => RunSingleTest("Character"));
+        if (testBoardButton != null)
+            testBoardButton.onClick.AddListener(() => RunSingleTest("Board"));
+        if (testAudioButton != null)
+            testAudioButton.onClick.AddListener(() => RunSingleTest("Audio"));
+        if (testMobileButton != null)
+            testMobileButton.onClick.AddListener(() => RunSingleTest("Mobile"));
+    }
+    
+    public void RunSingleTest(string testType)
+    {
+        testResults = "";
+        AddTestResult($"=== {testType} 기능 테스트 시작 ===\n");
+        
+        switch (testType)
         {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            InitializeTestManager();
+            case "Disc":
+                TestDiscVisibility();
+                break;
+            case "HP":
+                TestHPDisplay();
+                break;
+            case "Skill":
+                TestSkillUI();
+                break;
+            case "Damage":
+                TestDamageEffects();
+                break;
+            case "GameEnd":
+                TestGameEndResult();
+                break;
+            case "HPBar":
+                TestHPBarSegments();
+                break;
+            case "Prefab":
+                TestPrefabSystem();
+                break;
+            case "Performance":
+                TestPerformance();
+                break;
+            case "Character":
+                TestCharacterSystem();
+                break;
+            case "Board":
+                TestBoardSystem();
+                break;
+            case "Audio":
+                TestAudioSystem();
+                break;
+            case "Mobile":
+                TestMobileSystem();
+                break;
+        }
+        
+        AddTestResult($"\n=== {testType} 테스트 완료 ===");
+        
+        if (testResultText != null)
+            testResultText.text = testResults;
+        
+        Debug.Log(testResults);
+    }
+    
+    public void RunAllTests()
+    {
+        testResults = "";
+        AddTestResult("=== HoloThello 프로젝트 전체 테스트 시작 ===\n");
+        
+        // 1순위 테스트
+        TestDiscVisibility();
+        TestHPDisplay();
+        TestSkillUI();
+        
+        // 2순위 테스트
+        TestDamageEffects();
+        TestGameEndResult();
+        TestHPBarSegments();
+        
+        // 3순위 테스트
+        TestPrefabSystem();
+        TestPerformance();
+        
+        // 추가 기능 테스트
+        TestCharacterSystem();
+        TestBoardSystem();
+        TestAudioSystem();
+        TestMobileSystem();
+        
+        AddTestResult("\n=== 전체 테스트 완료 ===");
+        
+        if (testResultText != null)
+            testResultText.text = testResults;
+        
+        Debug.Log(testResults);
+    }
+    
+    void TestDiscVisibility()
+    {
+        AddTestResult("🔍 Disc 오브젝트 가시성 테스트:");
+        
+        // Disc 프리팹 존재 확인
+        GameObject discPrefab = Resources.Load<GameObject>("Prefabs/Disc");
+        if (discPrefab != null)
+        {
+            AddTestResult("  ✅ Disc 프리팹 존재");
         }
         else
         {
-            Destroy(gameObject);
-        }
-    }
-    
-    void InitializeTestManager()
-    {
-        // 디버그 모드 설정
-        if (enableDebugMode)
-        {
-            Debug.Log("TestManager: 디버그 모드 활성화");
+            AddTestResult("  ❌ Disc 프리팹 없음");
         }
         
-        // 성능 모니터링 초기화
-        if (enablePerformanceMonitoring)
+        // Disc.cs 스크립트 확인
+        Disc[] discs = FindObjectsOfType<Disc>();
+        if (discs.Length > 0)
         {
-            StartPerformanceMonitoring();
-        }
-        
-        // 에러 로깅 초기화
-        if (enableErrorLogging)
-        {
-            Application.logMessageReceived += OnLogMessageReceived;
-        }
-    }
-    
-    void Update()
-    {
-        if (enablePerformanceMonitoring)
-        {
-            UpdatePerformanceMonitoring();
-        }
-    }
-    
-    void StartPerformanceMonitoring()
-    {
-        Debug.Log("TestManager: 성능 모니터링 시작");
-    }
-    
-    void UpdatePerformanceMonitoring()
-    {
-        frameCount++;
-        fpsUpdateTimer += Time.deltaTime;
-        
-        if (fpsUpdateTimer >= 1f)
-        {
-            currentFPS = frameCount / fpsUpdateTimer;
-            frameCount = 0;
-            fpsUpdateTimer = 0f;
+            AddTestResult($"  ✅ {discs.Length}개의 Disc 오브젝트 발견");
             
-            UpdatePerformanceUI();
-        }
-    }
-    
-    void UpdatePerformanceUI()
-    {
-        if (fpsText != null)
-        {
-            fpsText.text = $"FPS: {currentFPS:F1}";
-        }
-        
-        if (memoryText != null)
-        {
-            long totalMemory = System.GC.GetTotalMemory(false);
-            memoryText.text = $"메모리: {totalMemory / 1024 / 1024}MB";
-        }
-        
-        if (errorText != null && errorLog.Count > 0)
-        {
-            errorText.text = $"에러: {errorLog.Count}개";
-        }
-    }
-    
-    void OnLogMessageReceived(string logString, string stackTrace, LogType type)
-    {
-        if (type == LogType.Error || type == LogType.Exception)
-        {
-            string errorMessage = $"[{type}] {logString}";
-            errorLog.Add(errorMessage);
-            
-            if (enableDebugMode)
+            // MiniImage 컴포넌트 확인
+            foreach (Disc disc in discs)
             {
-                Debug.LogError($"TestManager 에러 로그: {errorMessage}");
-            }
-            
-            // 최대 100개까지만 유지
-            if (errorLog.Count > 100)
-            {
-                errorLog.RemoveAt(0);
-            }
-        }
-    }
-    
-    // 유닛 테스트
-    public void RunUnitTests()
-    {
-        Debug.Log("TestManager: 유닛 테스트 시작");
-        
-        TestCharacterData();
-        TestGameLogic();
-        TestUISystem();
-        TestAudioSystem();
-        
-        Debug.Log("TestManager: 유닛 테스트 완료");
-    }
-    
-    void TestCharacterData()
-    {
-        Debug.Log("TestManager: 캐릭터 데이터 테스트");
-        
-        // CharacterDataManager 테스트
-        if (CharacterDataManager.Instance != null)
-        {
-            CharacterData[] typeAChars = CharacterDataManager.Instance.GetCharactersByType(CharacterType.TypeA);
-            CharacterData[] typeBChars = CharacterDataManager.Instance.GetCharactersByType(CharacterType.TypeB);
-            
-            Debug.Log($"TypeA 캐릭터 수: {typeAChars.Length}");
-            Debug.Log($"TypeB 캐릭터 수: {typeBChars.Length}");
-            
-            // 스킬 데이터 테스트
-            for (int i = 0; i < 10; i++)
-            {
-                CharacterData charData = CharacterDataManager.Instance.GetCharacterData(i);
-                if (charData != null)
+                Transform miniImage = disc.transform.Find("MiniImage");
+                if (miniImage != null)
                 {
-                    Debug.Log($"캐릭터 {i}: {charData.characterName}, 스킬A: {charData.skillA.skillName}");
+                    AddTestResult($"  ✅ Disc '{disc.name}'의 MiniImage 존재");
+                }
+                else
+                {
+                    AddTestResult($"  ❌ Disc '{disc.name}'의 MiniImage 없음");
                 }
             }
         }
+        else
+        {
+            AddTestResult("  ❌ Disc 오브젝트 없음");
+        }
     }
     
-    void TestGameLogic()
+    void TestHPDisplay()
     {
-        Debug.Log("TestManager: 게임 로직 테스트");
+        AddTestResult("🔍 HP 수치 표시 테스트:");
         
-        // BoardManager 테스트
-        BoardManager boardManager = FindFirstObjectByType<BoardManager>();
-        if (boardManager != null)
-        {
-            Debug.Log($"보드 크기: {boardManager.boardSize}");
-            Debug.Log($"게임 종료 여부: {boardManager.IsGameEnded()}");
-            Debug.Log($"현재 턴: {(boardManager.IsBlackTurn() ? "1P" : "CPU")}");
-        }
-        
-        // GameManager 테스트
         GameManager gameManager = FindFirstObjectByType<GameManager>();
         if (gameManager != null)
         {
-            Debug.Log($"1P HP: {gameManager.playerHp}");
-            Debug.Log($"CPU HP: {gameManager.cpuHp}");
+            AddTestResult("  ✅ GameManager 발견");
+            
+            // HP 텍스트 컴포넌트 확인
+            if (gameManager.playerHpText != null)
+                AddTestResult("  ✅ 1P HP 텍스트 컴포넌트 존재");
+            else
+                AddTestResult("  ❌ 1P HP 텍스트 컴포넌트 없음");
+                
+            if (gameManager.cpuHpText != null)
+                AddTestResult("  ✅ CPU HP 텍스트 컴포넌트 존재");
+            else
+                AddTestResult("  ❌ CPU HP 텍스트 컴포넌트 없음");
+                
+            // HP 바 컴포넌트 확인
+            if (gameManager.playerHpBar != null)
+                AddTestResult("  ✅ 1P HP 바 컴포넌트 존재");
+            else
+                AddTestResult("  ❌ 1P HP 바 컴포넌트 없음");
+                
+            if (gameManager.cpuHpBar != null)
+                AddTestResult("  ✅ CPU HP 바 컴포넌트 존재");
+            else
+                AddTestResult("  ❌ CPU HP 바 컴포넌트 없음");
+        }
+        else
+        {
+            AddTestResult("  ❌ GameManager 없음");
         }
     }
     
-    void TestUISystem()
+    void TestSkillUI()
     {
-        Debug.Log("TestManager: UI 시스템 테스트");
+        AddTestResult("🔍 스킬 UI 테스트:");
         
-        // UIManager 테스트
-        if (UIManager.Instance != null)
+        GameManager gameManager = FindFirstObjectByType<GameManager>();
+        if (gameManager != null)
         {
-            UIManager.Instance.ShowMessage("UI 테스트 메시지", 2f);
-            Debug.Log("UIManager 테스트 완료");
+            if (gameManager.playerSkillButtons != null && gameManager.playerSkillButtons.Length > 0)
+            {
+                AddTestResult($"  ✅ {gameManager.playerSkillButtons.Length}개의 플레이어 스킬 버튼 존재");
+                
+                // 각 스킬 버튼의 CooldownText 확인
+                for (int i = 0; i < gameManager.playerSkillButtons.Length; i++)
+                {
+                    if (gameManager.playerSkillButtons[i] != null)
+                    {
+                        Transform cooldownText = gameManager.playerSkillButtons[i].transform.Find("CooldownText");
+                        if (cooldownText != null)
+                        {
+                            AddTestResult($"  ✅ 플레이어 스킬 {i+1}의 CooldownText 존재");
+                        }
+                        else
+                        {
+                            AddTestResult($"  ❌ 플레이어 스킬 {i+1}의 CooldownText 없음");
+                        }
+                    }
+                }
+            }
+            else
+            {
+                AddTestResult("  ❌ 플레이어 스킬 버튼 없음");
+            }
+            
+            if (gameManager.cpuSkillButtons != null && gameManager.cpuSkillButtons.Length > 0)
+            {
+                AddTestResult($"  ✅ {gameManager.cpuSkillButtons.Length}개의 CPU 스킬 버튼 존재");
+            }
+            else
+            {
+                AddTestResult("  ❌ CPU 스킬 버튼 없음");
+            }
+        }
+    }
+    
+    void TestDamageEffects()
+    {
+        AddTestResult("🔍 데미지 이펙트 테스트:");
+        
+        EffectManager effectManager = FindFirstObjectByType<EffectManager>();
+        if (effectManager != null)
+        {
+            AddTestResult("  ✅ EffectManager 발견");
+            
+            if (effectManager.damageTextPrefab != null)
+                AddTestResult("  ✅ 데미지 텍스트 프리팹 존재");
+            else
+                AddTestResult("  ❌ 데미지 텍스트 프리팹 없음");
+                
+            if (effectManager.skillButtonPrefab != null)
+                AddTestResult("  ✅ 스킬 버튼 프리팹 존재");
+            else
+                AddTestResult("  ❌ 스킬 버튼 프리팹 없음");
+        }
+        else
+        {
+            AddTestResult("  ❌ EffectManager 없음");
+        }
+    }
+    
+    void TestGameEndResult()
+    {
+        AddTestResult("🔍 게임 종료 결과 테스트:");
+        
+        GameManager gameManager = FindFirstObjectByType<GameManager>();
+        if (gameManager != null)
+        {
+            if (gameManager.resultPanel != null)
+                AddTestResult("  ✅ 결과 패널 존재");
+            else
+                AddTestResult("  ❌ 결과 패널 없음");
+                
+            if (gameManager.resultTitleText != null)
+                AddTestResult("  ✅ 결과 제목 텍스트 존재");
+            else
+                AddTestResult("  ❌ 결과 제목 텍스트 없음");
+                
+            if (gameManager.resultDetailText != null)
+                AddTestResult("  ✅ 결과 상세 텍스트 존재");
+            else
+                AddTestResult("  ❌ 결과 상세 텍스트 없음");
+                
+            if (gameManager.resultContinueButton != null)
+                AddTestResult("  ✅ 계속하기 버튼 존재");
+            else
+                AddTestResult("  ❌ 계속하기 버튼 없음");
+                
+            if (gameManager.resultRestartButton != null)
+                AddTestResult("  ✅ 재시작 버튼 존재");
+            else
+                AddTestResult("  ❌ 재시작 버튼 없음");
+        }
+    }
+    
+    void TestHPBarSegments()
+    {
+        AddTestResult("🔍 HP바 구분선 테스트:");
+        
+        Slider[] hpBars = FindObjectsOfType<Slider>();
+        if (hpBars.Length > 0)
+        {
+            AddTestResult($"  ✅ {hpBars.Length}개의 HP바 발견");
+            
+            foreach (Slider hpBar in hpBars)
+            {
+                Transform segments = hpBar.transform.Find("Segments");
+                if (segments != null)
+                {
+                    AddTestResult($"  ✅ HP바 '{hpBar.name}'에 구분선 존재");
+                    
+                    // 구분선 개수 확인
+                    int segmentCount = segments.childCount;
+                    AddTestResult($"  📊 구분선 개수: {segmentCount}개");
+                }
+                else
+                {
+                    AddTestResult($"  ❌ HP바 '{hpBar.name}'에 구분선 없음");
+                }
+            }
+        }
+        else
+        {
+            AddTestResult("  ❌ HP바 없음");
+        }
+    }
+    
+    void TestPrefabSystem()
+    {
+        AddTestResult("🔍 프리팹 시스템 테스트:");
+        
+        // 프리팹 파일 존재 확인
+        string[] prefabFiles = {
+            "Assets/Prefabs/DamageText.prefab",
+            "Assets/Prefabs/SkillButton.prefab",
+            "Assets/Prefabs/Disc.prefab"
+        };
+        
+        foreach (string prefabPath in prefabFiles)
+        {
+            if (System.IO.File.Exists(prefabPath))
+            {
+                AddTestResult($"  ✅ {prefabPath} 존재");
+            }
+            else
+            {
+                AddTestResult($"  ❌ {prefabPath} 없음");
+            }
         }
         
-        // EffectManager 테스트
-        if (EffectManager.Instance != null)
+        // ObjectPool 시스템 확인
+        ObjectPool objectPool = FindFirstObjectByType<ObjectPool>();
+        if (objectPool != null)
         {
-            Debug.Log("EffectManager 테스트 완료");
+            AddTestResult("  ✅ ObjectPool 시스템 존재");
+        }
+        else
+        {
+            AddTestResult("  ❌ ObjectPool 시스템 없음");
+        }
+    }
+    
+    void TestPerformance()
+    {
+        AddTestResult("🔍 성능 최적화 테스트:");
+        
+        ObjectPool objectPool = FindFirstObjectByType<ObjectPool>();
+        if (objectPool != null)
+        {
+            AddTestResult("  ✅ ObjectPool 시스템 존재");
+            
+            if (objectPool.poolDictionary != null)
+            {
+                AddTestResult($"  ✅ {objectPool.poolDictionary.Count}개의 오브젝트 풀 존재");
+            }
+        }
+        else
+        {
+            AddTestResult("  ❌ ObjectPool 시스템 없음");
+        }
+        
+        // FPS 확인
+        float fps = 1.0f / Time.deltaTime;
+        AddTestResult($"  📊 현재 FPS: {fps:F1}");
+        
+        // 메모리 사용량 확인
+        long memoryUsage = System.GC.GetTotalMemory(false);
+        AddTestResult($"  📊 메모리 사용량: {memoryUsage / 1024 / 1024}MB");
+    }
+    
+    void TestCharacterSystem()
+    {
+        AddTestResult("🔍 캐릭터 시스템 테스트:");
+        
+        CharacterDataManager characterManager = FindFirstObjectByType<CharacterDataManager>();
+        if (characterManager != null)
+        {
+            AddTestResult("  ✅ CharacterDataManager 발견");
+            
+            if (characterManager.characters != null)
+            {
+                AddTestResult($"  ✅ {characterManager.characters.Length}개의 캐릭터 데이터 존재");
+            }
+            else
+            {
+                AddTestResult("  ❌ 캐릭터 데이터 없음");
+            }
+        }
+        else
+        {
+            AddTestResult("  ❌ CharacterDataManager 없음");
+        }
+        
+        CharacterSelectManager selectManager = FindFirstObjectByType<CharacterSelectManager>();
+        if (selectManager != null)
+        {
+            AddTestResult("  ✅ CharacterSelectManager 발견");
+        }
+        else
+        {
+            AddTestResult("  ❌ CharacterSelectManager 없음");
+        }
+    }
+    
+    void TestBoardSystem()
+    {
+        AddTestResult("🔍 오셀로 보드 시스템 테스트:");
+        
+        BoardManager boardManager = FindFirstObjectByType<BoardManager>();
+        if (boardManager != null)
+        {
+            AddTestResult("  ✅ BoardManager 발견");
+            
+            if (boardManager.boardCells != null)
+            {
+                AddTestResult($"  ✅ {boardManager.boardCells.Length}개의 보드 셀 존재");
+            }
+            else
+            {
+                AddTestResult("  ❌ 보드 셀 없음");
+            }
+            
+            if (boardManager.discPrefab != null)
+            {
+                AddTestResult("  ✅ 디스크 프리팹 존재");
+            }
+            else
+            {
+                AddTestResult("  ❌ 디스크 프리팹 없음");
+            }
+        }
+        else
+        {
+            AddTestResult("  ❌ BoardManager 없음");
         }
     }
     
     void TestAudioSystem()
     {
-        Debug.Log("TestManager: 오디오 시스템 테스트");
+        AddTestResult("🔍 오디오 시스템 테스트:");
         
-        // AudioManager 테스트
-        if (AudioManager.Instance != null)
+        AudioManager audioManager = FindFirstObjectByType<AudioManager>();
+        if (audioManager != null)
         {
-            Debug.Log($"마스터 볼륨: {AudioManager.Instance.GetMasterVolume()}");
-            Debug.Log($"BGM 볼륨: {AudioManager.Instance.GetBGMVolume()}");
-            Debug.Log($"SFX 볼륨: {AudioManager.Instance.GetSFXVolume()}");
+            AddTestResult("  ✅ AudioManager 발견");
+        }
+        else
+        {
+            AddTestResult("  ❌ AudioManager 없음");
+        }
+        
+        // AudioSource 컴포넌트 확인
+        AudioSource[] audioSources = FindObjectsOfType<AudioSource>();
+        if (audioSources.Length > 0)
+        {
+            AddTestResult($"  ✅ {audioSources.Length}개의 AudioSource 발견");
+        }
+        else
+        {
+            AddTestResult("  ❌ AudioSource 없음");
         }
     }
     
-    // 통합 테스트
-    public void RunIntegrationTests()
+    void TestMobileSystem()
     {
-        Debug.Log("TestManager: 통합 테스트 시작");
+        AddTestResult("🔍 모바일 시스템 테스트:");
         
-        TestGameFlow();
-        TestDataPersistence();
-        TestSceneTransitions();
+        MobileInputManager mobileInput = FindFirstObjectByType<MobileInputManager>();
+        if (mobileInput != null)
+        {
+            AddTestResult("  ✅ MobileInputManager 발견");
+        }
+        else
+        {
+            AddTestResult("  ❌ MobileInputManager 없음");
+        }
         
-        Debug.Log("TestManager: 통합 테스트 완료");
+        // 터치 입력 지원 확인
+        if (Input.touchSupported)
+        {
+            AddTestResult("  ✅ 터치 입력 지원");
+        }
+        else
+        {
+            AddTestResult("  ❌ 터치 입력 미지원");
+        }
+        
+        // 멀티터치 지원 확인
+        if (Input.multiTouchEnabled)
+        {
+            AddTestResult("  ✅ 멀티터치 지원");
+        }
+        else
+        {
+            AddTestResult("  ❌ 멀티터치 미지원");
+        }
     }
     
-    void TestGameFlow()
+    void AddTestResult(string result)
     {
-        Debug.Log("TestManager: 게임 플로우 테스트");
-        
-        // 캐릭터 선택 → 게임 → 결과 테스트
-        if (GameData.Instance != null)
+        testResults += result + "\n";
+    }
+    
+    void ClearTestResults()
+    {
+        testResults = "";
+        if (testResultText != null)
+            testResultText.text = "";
+    }
+    
+    // 자동 테스트 실행 (씬 로드 시)
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void AutoRunTests()
+    {
+        // 메인 씬에서만 자동 테스트 실행
+        if (SceneManager.GetActiveScene().name == "GameScene")
         {
-            // 테스트용 캐릭터 설정
-            CharacterData testChar = CharacterDataManager.Instance.GetCharacterData(0);
-            if (testChar != null)
+            TestManager testManager = FindFirstObjectByType<TestManager>();
+            if (testManager != null)
             {
-                GameData.Instance.selectedCharacter1P = testChar;
-                GameData.Instance.selectedCharacterCPU = testChar;
-                Debug.Log("테스트 캐릭터 설정 완료");
+                testManager.RunAllTests();
             }
-        }
-    }
-    
-    void TestDataPersistence()
-    {
-        Debug.Log("TestManager: 데이터 저장 테스트");
-        
-        // 설정 저장/불러오기 테스트
-        GameData.Instance.SetCharacterType(CharacterType.TypeA);
-        GameData.Instance.SaveSettings();
-        
-        // 볼륨 설정 테스트
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.SetMasterVolume(0.8f);
-            AudioManager.Instance.SetBGMVolume(0.6f);
-            AudioManager.Instance.SetSFXVolume(0.9f);
-        }
-        
-        Debug.Log("데이터 저장 테스트 완료");
-    }
-    
-    void TestSceneTransitions()
-    {
-        Debug.Log("TestManager: 씬 전환 테스트");
-        
-        // 씬 전환 테스트 (실제 전환은 하지 않고 로그만)
-        Debug.Log("MainScene → CharacterSelectScene 전환 테스트");
-        Debug.Log("CharacterSelectScene → GameScene 전환 테스트");
-        Debug.Log("GameScene → SettingsScene 전환 테스트");
-    }
-    
-    // 성능 테스트
-    public void RunPerformanceTests()
-    {
-        Debug.Log("TestManager: 성능 테스트 시작");
-        
-        TestMemoryUsage();
-        TestFrameRate();
-        TestLoadingTime();
-        
-        Debug.Log("TestManager: 성능 테스트 완료");
-    }
-    
-    void TestMemoryUsage()
-    {
-        long beforeMemory = System.GC.GetTotalMemory(false);
-        
-        // 메모리 사용량 테스트
-        for (int i = 0; i < 1000; i++)
-        {
-            GameObject testObj = new GameObject($"TestObject_{i}");
-            Destroy(testObj);
-        }
-        
-        long afterMemory = System.GC.GetTotalMemory(false);
-        long memoryDiff = afterMemory - beforeMemory;
-        
-        Debug.Log($"메모리 사용량 테스트: {memoryDiff / 1024}KB 차이");
-    }
-    
-    void TestFrameRate()
-    {
-        Debug.Log("TestManager: 프레임레이트 테스트");
-        
-        // 1초간 FPS 측정
-        float testDuration = 1f;
-        float elapsed = 0f;
-        int frameCount = 0;
-        
-        while (elapsed < testDuration)
-        {
-            elapsed += Time.deltaTime;
-            frameCount++;
-        }
-        
-        float averageFPS = frameCount / testDuration;
-        Debug.Log($"평균 FPS: {averageFPS:F1}");
-    }
-    
-    void TestLoadingTime()
-    {
-        Debug.Log("TestManager: 로딩 시간 테스트");
-        
-        float startTime = Time.realtimeSinceStartup;
-        
-        // 로딩 시뮬레이션
-        for (int i = 0; i < 1000; i++)
-        {
-            // 가상의 로딩 작업
-        }
-        
-        float endTime = Time.realtimeSinceStartup;
-        float loadingTime = endTime - startTime;
-        
-        Debug.Log($"로딩 시간: {loadingTime * 1000:F1}ms");
-    }
-    
-    // 버그 리포트 생성
-    public void GenerateBugReport()
-    {
-        Debug.Log("TestManager: 버그 리포트 생성");
-        
-        string report = "=== 버그 리포트 ===\n";
-        report += $"시간: {System.DateTime.Now}\n";
-        report += $"Unity 버전: {Application.unityVersion}\n";
-        report += $"플랫폼: {Application.platform}\n";
-        report += $"FPS: {currentFPS:F1}\n";
-        report += $"메모리: {System.GC.GetTotalMemory(false) / 1024 / 1024}MB\n";
-        report += $"에러 수: {errorLog.Count}\n";
-        
-        if (errorLog.Count > 0)
-        {
-            report += "\n=== 에러 로그 ===\n";
-            foreach (string error in errorLog)
-            {
-                report += $"{error}\n";
-            }
-        }
-        
-        Debug.Log(report);
-        
-        // 파일로 저장 (에디터에서만)
-        #if UNITY_EDITOR
-        string filePath = $"Assets/bug_report_{System.DateTime.Now:yyyyMMdd_HHmmss}.txt";
-        System.IO.File.WriteAllText(filePath, report);
-        Debug.Log($"버그 리포트 저장: {filePath}");
-        #endif
-    }
-    
-    // 디버그 명령어
-    public void ExecuteDebugCommand(string command)
-    {
-        switch (command.ToLower())
-        {
-            case "test":
-                RunUnitTests();
-                break;
-            case "integration":
-                RunIntegrationTests();
-                break;
-            case "performance":
-                RunPerformanceTests();
-                break;
-            case "report":
-                GenerateBugReport();
-                break;
-            case "clear":
-                errorLog.Clear();
-                Debug.Log("에러 로그 초기화");
-                break;
-            default:
-                Debug.Log($"알 수 없는 명령어: {command}");
-                break;
-        }
-    }
-    
-    void OnDestroy()
-    {
-        if (enableErrorLogging)
-        {
-            Application.logMessageReceived -= OnLogMessageReceived;
         }
     }
 } 

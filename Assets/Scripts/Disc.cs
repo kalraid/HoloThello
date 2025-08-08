@@ -17,8 +17,8 @@ public class Disc : MonoBehaviour
     {
         // mainRenderer, miniRenderer 자동 할당
         mainRenderer = GetComponent<SpriteRenderer>();
-        // 자식 오브젝트 이름 오타 수정: MiniImage -> Minilmage
-        Transform mini = transform.Find("Minilmage");
+        // 자식 오브젝트 이름 수정: Minilmage -> MiniImage
+        Transform mini = transform.Find("MiniImage");
         if (mini != null) miniRenderer = mini.GetComponent<SpriteRenderer>();
         if (mainRenderer == null)
             Debug.LogError($"{gameObject.name}의 mainRenderer가 null입니다! (Awake)");

@@ -4,8 +4,6 @@ using System.Collections;
 
 public class UIManager : MonoBehaviour
 {
-    public static UIManager Instance { get; private set; }
-    
     [Header("안내 메시지")]
     public GameObject messagePanel;
     public Text messageText;
@@ -26,16 +24,26 @@ public class UIManager : MonoBehaviour
     public Slider fontSizeSlider;
     public Text fontSizeLabel;
     
+    // 씬별 인스턴스로 변경 (DontDestroyOnLoad 제거)
+    private static UIManager currentInstance;
+    
+    // Instance 프로퍼티 추가
+    public static UIManager Instance
+    {
+        get { return currentInstance; }
+    }
+    
     void Awake()
     {
-        if (Instance == null)
+        // 씬별 인스턴스 관리
+        if (currentInstance == null)
         {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
+            currentInstance = this;
             InitializeUI();
         }
         else
         {
+            // 이미 인스턴스가 있으면 파괴
             Destroy(gameObject);
         }
     }
@@ -63,6 +71,12 @@ public class UIManager : MonoBehaviour
         LoadAccessibilitySettings();
     }
     
+    // 정적 메서드로 현재 인스턴스에 접근
+    public static UIManager GetInstance()
+    {
+        return currentInstance;
+    }
+    
     // 안내 메시지 표시
     public void ShowMessage(string message, float duration = 3f)
     {
@@ -75,6 +89,15 @@ public class UIManager : MonoBehaviour
             {
                 StartCoroutine(AutoHideMessage(duration));
             }
+        }
+    }
+    
+    // 정적 메서드로 메시지 표시
+    public static void ShowMessageStatic(string message, float duration = 3f)
+    {
+        if (currentInstance != null)
+        {
+            currentInstance.ShowMessage(message, duration);
         }
     }
     
@@ -111,16 +134,28 @@ public class UIManager : MonoBehaviour
         }
     }
     
+    // 정적 메서드로 로딩 표시
+    public static void ShowLoadingStatic(string message = "로딩 중...")
+    {
+        if (currentInstance != null)
+        {
+            currentInstance.ShowLoading(message);
+        }
+    }
+    
     public void UpdateLoadingProgress(float progress, string message = null)
     {
-        if (loadingProgressBar != null)
+        if (loadingPanel != null && loadingPanel.activeSelf)
         {
-            loadingProgressBar.value = progress;
-        }
-        
-        if (loadingText != null && !string.IsNullOrEmpty(message))
-        {
-            loadingText.text = message;
+            if (loadingProgressBar != null)
+            {
+                loadingProgressBar.value = Mathf.Clamp01(progress);
+            }
+            
+            if (message != null && loadingText != null)
+            {
+                loadingText.text = message;
+            }
         }
     }
     
@@ -132,7 +167,15 @@ public class UIManager : MonoBehaviour
         }
     }
     
-    // 게임 정보 업데이트
+    // 정적 메서드로 로딩 숨김
+    public static void HideLoadingStatic()
+    {
+        if (currentInstance != null)
+        {
+            currentInstance.HideLoading();
+        }
+    }
+    
     public void UpdateGameInfo(string info)
     {
         if (gameInfoText != null)
@@ -157,159 +200,157 @@ public class UIManager : MonoBehaviour
         }
     }
     
-    // 접근성 설정
     void LoadAccessibilitySettings()
     {
-        bool colorBlindMode = PlayerPrefs.GetInt("ColorBlindMode", 0) == 1;
-        float fontSize = PlayerPrefs.GetFloat("FontSize", 1.0f);
-        
-        if (colorBlindModeToggle != null)
+        if (GameData.Instance != null)
         {
-            colorBlindModeToggle.isOn = colorBlindMode;
-            colorBlindModeToggle.onValueChanged.AddListener(OnColorBlindModeChanged);
+            bool colorBlindMode = GameData.Instance.colorBlindMode;
+            float fontSize = GameData.Instance.fontSize;
+            
+            ApplyAccessibilitySettings(colorBlindMode, fontSize);
         }
-        
-        if (fontSizeSlider != null)
-        {
-            fontSizeSlider.value = fontSize;
-            fontSizeSlider.onValueChanged.AddListener(OnFontSizeChanged);
-        }
-        
-        ApplyAccessibilitySettings(colorBlindMode, fontSize);
     }
     
     void ApplyAccessibilitySettings(bool colorBlindMode, float fontSize)
     {
-        // 색약 모드 적용
         if (colorBlindMode)
         {
             ApplyColorBlindMode();
         }
         
-        // 폰트 크기 적용
-        ApplyFontSize(fontSize);
+        if (fontSize != 1.0f)
+        {
+            ApplyFontSize(fontSize);
+        }
     }
     
     void ApplyColorBlindMode()
     {
-        // 색약 모드를 위한 색상 변경
-        // 빨강/초록 구분이 어려운 색상들을 파랑/노랑으로 변경
+        // 모든 Text 컴포넌트에 색맹 모드 적용
         Text[] allTexts = FindObjectsByType<Text>(FindObjectsSortMode.None);
         foreach (Text text in allTexts)
         {
-            if (text.color == Color.red)
+            if (text != null)
             {
-                text.color = Color.blue;
-            }
-            else if (text.color == Color.green)
-            {
-                text.color = Color.yellow;
+                // 색맹 모드에서는 색상 대비를 높임
+                Color textColor = text.color;
+                if (textColor.r > 0.5f && textColor.g > 0.5f && textColor.b > 0.5f)
+                {
+                    text.color = Color.black; // 밝은 색을 검은색으로
+                }
+                else
+                {
+                    text.color = Color.white; // 어두운 색을 흰색으로
+                }
             }
         }
         
-        // 체력바 색상 변경
-        Slider[] allSliders = FindObjectsByType<Slider>(FindObjectsSortMode.None);
-        foreach (Slider slider in allSliders)
+        // 모든 Image 컴포넌트에 색맹 모드 적용
+        Image[] allImages = FindObjectsByType<Image>(FindObjectsSortMode.None);
+        foreach (Image image in allImages)
         {
-            Image fillImage = slider.fillRect.GetComponent<Image>();
-            if (fillImage != null)
+            if (image != null && image.sprite != null)
             {
-                if (fillImage.color == Color.red)
-                {
-                    fillImage.color = Color.blue;
-                }
-                else if (fillImage.color == Color.green)
-                {
-                    fillImage.color = Color.yellow;
-                }
+                // 색맹 모드에서는 이미지 색상을 단순화
+                Color imageColor = image.color;
+                float gray = (imageColor.r + imageColor.g + imageColor.b) / 3f;
+                image.color = new Color(gray, gray, gray, imageColor.a);
+            }
+        }
+        
+        // 모든 Button 컴포넌트에 색맹 모드 적용
+        Button[] allButtons = FindObjectsByType<Button>(FindObjectsSortMode.None);
+        foreach (Button button in allButtons)
+        {
+            if (button != null)
+            {
+                ColorBlock colors = button.colors;
+                colors.normalColor = Color.white;
+                colors.highlightedColor = Color.gray;
+                colors.pressedColor = Color.black;
+                button.colors = colors;
             }
         }
     }
     
     void ApplyFontSize(float sizeMultiplier)
     {
-        Text[] allTexts = FindObjectsByType<Text>(FindObjectsSortMode.None);
+        // 폰트 크기 조정
+        Text[] allTexts = FindObjectsOfType<Text>();
         foreach (Text text in allTexts)
         {
             text.fontSize = Mathf.RoundToInt(text.fontSize * sizeMultiplier);
-        }
-        
-        if (fontSizeLabel != null)
-        {
-            fontSizeLabel.text = $"폰트 크기: {sizeMultiplier:F1}x";
         }
     }
     
     public void OnColorBlindModeChanged(bool isOn)
     {
-        PlayerPrefs.SetInt("ColorBlindMode", isOn ? 1 : 0);
-        PlayerPrefs.Save();
-        
-        ApplyAccessibilitySettings(isOn, fontSizeSlider != null ? fontSizeSlider.value : 1.0f);
+        if (GameData.Instance != null)
+        {
+            GameData.Instance.colorBlindMode = isOn;
+            GameData.Instance.SaveSettings();
+            
+            ApplyColorBlindMode();
+        }
     }
     
     public void OnFontSizeChanged(float size)
     {
-        PlayerPrefs.SetFloat("FontSize", size);
-        PlayerPrefs.Save();
-        
-        ApplyFontSize(size);
+        if (GameData.Instance != null)
+        {
+            GameData.Instance.fontSize = size;
+            GameData.Instance.SaveSettings();
+            
+            ApplyFontSize(size);
+        }
     }
     
-    // 툴팁 시스템
     public void ShowTooltip(string tooltipText, Vector3 position)
     {
-        // 간단한 툴팁 구현
+        // 툴팁 표시 로직
         ShowMessage(tooltipText, 2f);
     }
     
-    // 게임 튜토리얼
     public void ShowTutorial()
     {
         string tutorialText = "게임 방법:\n" +
-            "1. 오셀로 보드에서 돌을 놓아 상대방 HP를 깎으세요\n" +
-            "2. 스킬 버튼을 사용해 추가 데미지를 주세요\n" +
-            "3. 상대방 HP를 0으로 만들면 승리!\n" +
-            "4. 5배수 데미지 시 특별 이펙트가 발동됩니다";
+                             "1. 오셀로 규칙에 따라 돌을 놓습니다\n" +
+                             "2. 스킬을 사용하여 전략적으로 플레이하세요\n" +
+                             "3. 상대방의 HP를 0으로 만드세요!";
         
         ShowMessage(tutorialText, 5f);
     }
     
-    // 게임 통계 표시
     public void ShowGameStats(int totalMoves, int totalDamage, float gameTime)
     {
         string statsText = $"게임 통계:\n" +
-            $"총 수: {totalMoves}\n" +
-            $"총 데미지: {totalDamage}\n" +
-            $"게임 시간: {gameTime:F1}초";
+                          $"총 이동: {totalMoves}회\n" +
+                          $"총 데미지: {totalDamage}P\n" +
+                          $"게임 시간: {gameTime:F1}초";
         
         ShowMessage(statsText, 4f);
     }
     
-    // 키보드 단축키 안내
     public void ShowKeyboardShortcuts()
     {
         string shortcutsText = "키보드 단축키:\n" +
-            "1, 2, 3: 스킬 사용\n" +
-            "ESC: 메뉴\n" +
-            "R: 게임 재시작\n" +
-            "T: 튜토리얼";
+                              "ESC: 일시정지\n" +
+                              "R: 게임 재시작\n" +
+                              "1-3: 스킬 사용\n" +
+                              "Space: 턴 넘기기";
         
-        ShowMessage(shortcutsText, 3f);
+        ShowMessage(shortcutsText, 4f);
     }
     
-    // 에러 메시지
     public void ShowError(string errorMessage)
     {
         if (messageText != null)
         {
+            Color originalColor = messageText.color;
             messageText.color = Color.red;
+            ShowMessage($"오류: {errorMessage}", 3f);
+            StartCoroutine(RestoreMessageColor());
         }
-        
-        ShowMessage($"오류: {errorMessage}", 3f);
-        
-        // 색상 복원
-        StartCoroutine(RestoreMessageColor());
     }
     
     IEnumerator RestoreMessageColor()
@@ -321,31 +362,34 @@ public class UIManager : MonoBehaviour
         }
     }
     
-    // 성공 메시지
     public void ShowSuccess(string successMessage)
     {
         if (messageText != null)
         {
+            Color originalColor = messageText.color;
             messageText.color = Color.green;
+            ShowMessage($"성공: {successMessage}", 3f);
+            StartCoroutine(RestoreMessageColor());
         }
-        
-        ShowMessage(successMessage, 2f);
-        
-        // 색상 복원
-        StartCoroutine(RestoreMessageColor());
     }
     
-    // 경고 메시지
     public void ShowWarning(string warningMessage)
     {
         if (messageText != null)
         {
+            Color originalColor = messageText.color;
             messageText.color = Color.yellow;
+            ShowMessage($"경고: {warningMessage}", 3f);
+            StartCoroutine(RestoreMessageColor());
         }
-        
-        ShowMessage($"경고: {warningMessage}", 2f);
-        
-        // 색상 복원
-        StartCoroutine(RestoreMessageColor());
+    }
+    
+    // 씬 전환 시 인스턴스 정리
+    void OnDestroy()
+    {
+        if (currentInstance == this)
+        {
+            currentInstance = null;
+        }
     }
 } 

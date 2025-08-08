@@ -13,6 +13,9 @@ public class CharacterDataManager : MonoBehaviour
     
     private Dictionary<CharacterType, CharacterData[]> characterDataByType;
     
+    // 테스트용 characters 필드 추가
+    public CharacterData[] characters;
+    
     void Awake()
     {
         // 싱글톤 패턴

@@ -84,12 +84,23 @@ public class GameManager : MonoBehaviour
     public Text gameModeText;
     public Text diceResultText;
     
+    [Header("HP 수치 표시")]
+    public Text playerHpText;
+    public Text cpuHpText;
+    
+    [Header("게임 결과 UI")]
+    public GameObject resultPanel;
+    public Text resultTitleText;
+    public Text resultDetailText;
+    public Button resultContinueButton;
+    public Button resultRestartButton;
+    
     // 게임 정보 업데이트
     void UpdateGameInfo()
     {
         if (gameInfoText != null)
         {
-            string info = $"1P HP: {playerHp} | 2P HP: {cpuHp}";
+            string info = $"1P HP: {playerHp:N0} | 2P HP: {cpuHp:N0}";
             gameInfoText.text = info;
         }
         
@@ -174,6 +185,24 @@ public class GameManager : MonoBehaviour
             }
             AddHpBarSegments(cpuHpBar);
         }
+        
+        // HP 수치 텍스트 업데이트
+        if (playerHpText != null)
+        {
+            playerHpText.text = $"{playerHp:N0}";
+            // HP가 낮을수록 색상 변경
+            if (playerHp <= 2000) playerHpText.color = Color.red;
+            else if (playerHp <= 5000) playerHpText.color = Color.yellow;
+            else playerHpText.color = Color.white;
+        }
+        if (cpuHpText != null)
+        {
+            cpuHpText.text = $"{cpuHp:N0}";
+            // HP가 낮을수록 색상 변경
+            if (cpuHp <= 2000) cpuHpText.color = Color.red;
+            else if (cpuHp <= 5000) cpuHpText.color = Color.yellow;
+            else cpuHpText.color = Color.white;
+        }
     }
 
     // HP바 위에 10개의 흰색 세로선(구분선) 추가
@@ -185,20 +214,46 @@ public class GameManager : MonoBehaviour
             GameObject segObj = new GameObject("Segments");
             segObj.transform.SetParent(hpBar.transform, false);
             segParent = segObj.transform;
+            
+            // Segments 오브젝트를 HP바의 fill 영역 위에 배치
+            RectTransform segRect = segObj.GetComponent<RectTransform>();
+            if (segRect != null)
+            {
+                segRect.anchorMin = Vector2.zero;
+                segRect.anchorMax = Vector2.one;
+                segRect.offsetMin = Vector2.zero;
+                segRect.offsetMax = Vector2.zero;
+            }
         }
+        
         // 이미 세그먼트가 있으면 중복 생성 방지
         if (segParent.childCount >= 9) return;
-        // 9개(10구간) 세로선 생성
+        
+        // 9개(10구간) 세로선 생성 (1000 단위 구분선)
         for (int i = 1; i < 10; i++)
         {
             GameObject line = new GameObject($"Segment_{i}");
             line.transform.SetParent(segParent, false);
             RectTransform rt = line.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(i / 10f, 0f);
-            rt.anchorMax = new Vector2(i / 10f, 1f);
-            rt.sizeDelta = new Vector2(2f, 0f);
+            
+            // 정확한 위치 계산 (1000 단위)
+            float position = i / 10f;
+            rt.anchorMin = new Vector2(position, 0f);
+            rt.anchorMax = new Vector2(position, 1f);
+            rt.sizeDelta = new Vector2(1f, 0f); // 더 얇은 선
+            rt.anchoredPosition = Vector2.zero;
+            
             Image img = line.AddComponent<Image>();
-            img.color = Color.white;
+            img.color = new Color(1f, 1f, 1f, 0.7f); // 반투명 흰색
+            
+            // 구분선을 HP바 위에 표시하기 위해 Sorting Order 설정
+            Canvas canvas = line.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = line.AddComponent<Canvas>();
+                canvas.overrideSorting = true;
+                canvas.sortingOrder = 10; // HP바보다 위에 표시
+            }
         }
     }
 
@@ -455,7 +510,74 @@ public class GameManager : MonoBehaviour
     {
         UpdateGameInfo();
         UpdateHPBars();
-        // 스킬 버튼 UI 갱신은 UpdateGameInfo 또는 별도 메서드에서 처리
+        UpdateSkillUI();
+    }
+    
+    void UpdateSkillUI()
+    {
+        // 플레이어 스킬 버튼 상태 업데이트
+        for (int i = 0; i < playerSkillButtons.Length; i++)
+        {
+            if (playerSkillButtons[i] != null)
+            {
+                bool canUse = CanUseSkill(i);
+                playerSkillButtons[i].interactable = canUse;
+                
+                // 버튼 색상 변경
+                Image buttonImage = playerSkillButtons[i].GetComponent<Image>();
+                if (buttonImage != null)
+                {
+                    if (canUse)
+                    {
+                        buttonImage.color = Color.white;
+                    }
+                    else
+                    {
+                        buttonImage.color = new Color(0.5f, 0.5f, 0.5f, 0.7f);
+                    }
+                }
+                
+                // 쿨타임 텍스트 표시
+                Transform cooldownText = playerSkillButtons[i].transform.Find("CooldownText");
+                if (cooldownText != null)
+                {
+                    Text cooldownTextComponent = cooldownText.GetComponent<Text>();
+                    if (cooldownTextComponent != null)
+                    {
+                        if (playerSkillCooldowns[i] > 0)
+                        {
+                            cooldownTextComponent.text = playerSkillCooldowns[i].ToString();
+                            cooldownTextComponent.gameObject.SetActive(true);
+                        }
+                        else
+                        {
+                            cooldownTextComponent.gameObject.SetActive(false);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // CPU 스킬 버튼 상태 업데이트 (시각적 표시용)
+        for (int i = 0; i < cpuSkillButtons.Length; i++)
+        {
+            if (cpuSkillButtons[i] != null)
+            {
+                bool canUse = cpuSkillCooldowns[i] <= 0 && !cpuSkillUsed[i];
+                Image buttonImage = cpuSkillButtons[i].GetComponent<Image>();
+                if (buttonImage != null)
+                {
+                    if (canUse)
+                    {
+                        buttonImage.color = Color.white;
+                    }
+                    else
+                    {
+                        buttonImage.color = new Color(0.5f, 0.5f, 0.5f, 0.7f);
+                    }
+                }
+            }
+        }
     }
     
     // ... 기존 UpdateGameInfo, UpdateHPBars, UpdateSkillButtons 메서드 ...
@@ -726,11 +848,14 @@ public class GameManager : MonoBehaviour
     void ShowGameEndEffect(bool player1Wins)
     {
         string winnerText = "";
+        string detailText = "";
         
         if (player1Wins)
         {
             // 1P 승리
             winnerText = "1P 승리!";
+            detailText = $"최종 HP: 1P {playerHp} vs CPU {cpuHp}";
+            
             if (EffectManager.Instance != null)
             {
                 EffectManager.Instance.ShowKOEffect();
@@ -775,8 +900,67 @@ public class GameManager : MonoBehaviour
             resultText.text = winnerText;
         }
         
-        // 3초 후 캐릭터 선택 화면으로 이동
-        StartCoroutine(ReturnToCharacterSelect());
+        // 게임 결과 패널 표시
+        ShowResultPanel(winnerText, detailText);
+    }
+    
+    void ShowResultPanel(string title, string detail)
+    {
+        if (resultPanel != null)
+        {
+            resultPanel.SetActive(true);
+            
+            if (resultTitleText != null)
+                resultTitleText.text = title;
+            
+            if (resultDetailText != null)
+                resultDetailText.text = detail;
+            
+            // 버튼 이벤트 연결
+            if (resultContinueButton != null)
+            {
+                resultContinueButton.onClick.RemoveAllListeners();
+                resultContinueButton.onClick.AddListener(() => {
+                    resultPanel.SetActive(false);
+                    StartCoroutine(ReturnToCharacterSelect());
+                });
+            }
+            
+            if (resultRestartButton != null)
+            {
+                resultRestartButton.onClick.RemoveAllListeners();
+                resultRestartButton.onClick.AddListener(() => {
+                    resultPanel.SetActive(false);
+                    RestartGame();
+                });
+            }
+        }
+        else
+        {
+            // 패널이 없으면 3초 후 자동 이동
+            StartCoroutine(ReturnToCharacterSelect());
+        }
+    }
+    
+    void RestartGame()
+    {
+        // 게임 재시작 로직
+        playerHp = 10000;
+        cpuHp = 10000;
+        isKO = false;
+        isFinish = false;
+        
+        // UI 초기화
+        UpdateAllUI();
+        
+        // 보드 초기화
+        if (boardManager != null)
+        {
+            boardManager.InitializeBoard();
+            boardManager.SetupInitialPieces();
+        }
+        
+        Debug.Log("게임이 재시작되었습니다.");
     }
     
     System.Collections.IEnumerator ReturnToCharacterSelect()
@@ -969,4 +1153,4 @@ public class GameManager : MonoBehaviour
         // ... (스킬 사용 로직) ...
         UpdateAllUI();
     }
-} 
+}

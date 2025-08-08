@@ -19,6 +19,14 @@ public class SkillData
 [System.Serializable]
 public class CharacterData
 {
+    // 기본 필드들
+    public int id;
+    public string name;
+    public CharacterType type;
+    public Sprite sprite;
+    public Color color;
+    
+    // 기존 필드들
     public string characterName;
     public CharacterType characterType;
     public Sprite characterSprite;

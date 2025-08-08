@@ -21,6 +21,11 @@ public class GameData : MonoBehaviour
     
     [Header("게임 모드")]
     public GameMode currentGameMode = GameMode.PlayerVsCPU;
+    public GameMode gameMode = GameMode.PlayerVsCPU; // 추가
+    
+    [Header("접근성 설정")]
+    public bool colorBlindMode = false; // 추가
+    public float fontSize = 1.0f; // 추가
     
     [Header("주사위 시스템")]
     public int diceResult1P = 0;

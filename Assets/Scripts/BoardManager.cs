@@ -21,6 +21,9 @@ public class BoardManager : MonoBehaviour
     private bool isBlackTurn = true; // true = 검은돌(1P), false = 흰돌(CPU)
     private bool gameEnded = false;
     
+    // 테스트용 boardCells 필드 추가
+    public Disc[] boardCells;
+    
     // 게임 상태
     private int blackScore = 0;
     private int whiteScore = 0;
@@ -62,7 +65,7 @@ public class BoardManager : MonoBehaviour
         return isValid;
     }
     
-    void InitializeBoard()
+    public void InitializeBoard()
     {
         board = new Disc[boardSize, boardSize];
         for (int x = 0; x < boardSize; x++)
@@ -87,7 +90,7 @@ public class BoardManager : MonoBehaviour
         }
     }
     
-    void SetupInitialPieces()
+    public void SetupInitialPieces()
     {
         // 초기 4개 돌 배치 (오셀로 표준 규칙)
         int center = boardSize / 2;

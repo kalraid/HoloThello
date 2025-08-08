@@ -38,182 +38,298 @@ public class ButtonUtilityEditor : MonoBehaviour
 
     static void ForEachScene(System.Action<string> action)
     {
-        foreach (var path in scenePaths)
+        try
         {
-            action(path);
+            foreach (var path in scenePaths)
+            {
+                if (File.Exists(path))
+                {
+                    action(path);
+                }
+                else
+                {
+                    Debug.LogWarning($"씬 파일을 찾을 수 없습니다: {path}");
+                }
+            }
+            Debug.Log("모든 씬 처리 완료!");
         }
-        Debug.Log("모든 씬 처리 완료!");
+        catch (System.Exception e)
+        {
+            Debug.LogError($"씬 처리 중 오류가 발생했습니다: {e.Message}");
+        }
     }
 
     // === 버튼 자동연결 ===
     static void ConnectButtonsInScene(string scenePath)
     {
-        var scene = EditorSceneManager.OpenScene(scenePath);
-        Canvas canvas = Object.FindFirstObjectByType<Canvas>();
-        if (canvas == null) { Debug.LogWarning($"{scenePath}: Canvas 없음"); return; }
-        Button[] buttons = canvas.GetComponentsInChildren<Button>(true);
-        int count = 0;
-        foreach (var button in buttons)
+        try
         {
-            string name = button.gameObject.name.ToLower();
-            button.onClick.RemoveAllListeners();
-            if (TryConnectButton(button, name)) count++;
+            var scene = EditorSceneManager.OpenScene(scenePath);
+            Canvas canvas = Object.FindFirstObjectByType<Canvas>();
+            if (canvas == null) 
+            { 
+                Debug.LogWarning($"{scenePath}: Canvas 없음"); 
+                return; 
+            }
+            
+            Button[] buttons = canvas.GetComponentsInChildren<Button>(true);
+            int count = 0;
+            
+            foreach (var button in buttons)
+            {
+                string name = button.gameObject.name.ToLower();
+                button.onClick.RemoveAllListeners();
+                if (TryConnectButton(button, name)) count++;
+            }
+            
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"{scenePath}: {count}개 버튼 자동연결 완료");
         }
-        EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene);
-        Debug.Log($"{scenePath}: {count}개 버튼 자동연결 완료");
+        catch (System.Exception e)
+        {
+            Debug.LogError($"{scenePath} 버튼 연결 중 오류: {e.Message}");
+        }
     }
 
     // === 버튼 상태체크 ===
     static void CheckButtonsInScene(string sceneName)
     {
-        Button[] buttons = Object.FindObjectsByType<Button>(FindObjectsSortMode.None);
-        int connected = 0, unconnected = 0;
-        foreach (var button in buttons)
+        try
         {
-            int cnt = button.onClick.GetPersistentEventCount();
-            if (cnt > 0) connected++; else unconnected++;
-            Debug.Log($"버튼: {button.gameObject.name} / 연결: {cnt}개");
+            Button[] buttons = Object.FindObjectsByType<Button>(FindObjectsSortMode.None);
+            int connected = 0, unconnected = 0;
+            
+            foreach (var button in buttons)
+            {
+                int cnt = button.onClick.GetPersistentEventCount();
+                if (cnt > 0) connected++; else unconnected++;
+                Debug.Log($"버튼: {button.gameObject.name} / 연결: {cnt}개");
+            }
+            
+            Debug.Log($"연결된 버튼: {connected}, 연결 안됨: {unconnected}, 총: {buttons.Length}");
         }
-        Debug.Log($"연결된 버튼: {connected}, 연결 안됨: {unconnected}, 총: {buttons.Length}");
+        catch (System.Exception e)
+        {
+            Debug.LogError($"버튼 상태 체크 중 오류: {e.Message}");
+        }
     }
 
     // === 버튼 보고서 ===
     static void GenerateReport(string sceneName)
     {
-        Button[] buttons = Object.FindObjectsByType<Button>(FindObjectsSortMode.None);
-        string report = $"=== 버튼 연결 상태 보고서 ===\n\n현재 씬: {sceneName}\n\n총 버튼 수: {buttons.Length}개\n\n";
-        int connected = 0, unconnected = 0;
-        foreach (var button in buttons)
+        try
         {
-            int cnt = button.onClick.GetPersistentEventCount();
-            report += $"버튼: {button.gameObject.name}\n  연결된 이벤트: {cnt}개\n";
-            if (cnt > 0)
+            Button[] buttons = Object.FindObjectsByType<Button>(FindObjectsSortMode.None);
+            string report = $"=== 버튼 연결 상태 보고서 ===\n\n현재 씬: {sceneName}\n\n총 버튼 수: {buttons.Length}개\n\n";
+            int connected = 0, unconnected = 0;
+            
+            foreach (var button in buttons)
             {
-                connected++;
-                report += "  상태: ✅ 연결됨\n";
-                for (int i = 0; i < cnt; i++)
+                int cnt = button.onClick.GetPersistentEventCount();
+                report += $"버튼: {button.gameObject.name}\n  연결된 이벤트: {cnt}개\n";
+                if (cnt > 0)
                 {
-                    string target = button.onClick.GetPersistentTarget(i)?.name ?? "Unknown";
-                    string method = button.onClick.GetPersistentMethodName(i);
-                    report += $"    - {target}.{method}()\n";
+                    connected++;
+                    report += "  상태: ✅ 연결됨\n";
+                    for (int i = 0; i < cnt; i++)
+                    {
+                        string target = button.onClick.GetPersistentTarget(i)?.name ?? "Unknown";
+                        string method = button.onClick.GetPersistentMethodName(i);
+                        report += $"    - {target}.{method}()\n";
+                    }
                 }
+                else
+                {
+                    unconnected++;
+                    report += "  상태: ❌ 연결 안됨\n";
+                    string suggestion = GetSuggestedFunction(button.gameObject.name);
+                    if (!string.IsNullOrEmpty(suggestion))
+                    {
+                        report += $"  제안: {suggestion}\n";
+                    }
+                }
+                report += "\n";
             }
-            else
-            {
-                unconnected++;
-                report += "  상태: ❌ 연결되지 않음\n";
-                string suggestion = GetSuggestedFunction(button.gameObject.name);
-                if (!string.IsNullOrEmpty(suggestion))
-                    report += $"    추천: {suggestion}\n";
-            }
-            report += "\n";
+            
+            report += $"=== 요약 ===\n연결된 버튼: {connected}개\n연결 안된 버튼: {unconnected}개\n총 버튼: {buttons.Length}개";
+            
+            Debug.Log(report);
+            
+            // 파일로 저장
+            string fileName = $"button_report_{sceneName}_{System.DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            string filePath = Path.Combine("Assets", fileName);
+            File.WriteAllText(filePath, report);
+            Debug.Log($"보고서 저장됨: {filePath}");
         }
-        report += $"=== 요약 ===\n연결된 버튼: {connected}개\n연결되지 않은 버튼: {unconnected}개\n연결률: {(buttons.Length > 0 ? (float)connected/buttons.Length*100f : 0):F1}%\n";
-        string fileName = $"button_report_{sceneName}_{System.DateTime.Now:yyyyMMdd_HHmmss}.txt";
-        string filePath = Path.Combine("Assets", fileName);
-        File.WriteAllText(filePath, report);
-        AssetDatabase.Refresh();
-        EditorUtility.DisplayDialog("보고서 생성 완료", $"{filePath}에 저장됨", "확인");
+        catch (System.Exception e)
+        {
+            Debug.LogError($"보고서 생성 중 오류: {e.Message}");
+        }
     }
 
     // === 퀵픽스 ===
     static void QuickFixButtonsInScene(string sceneName)
     {
-        Button[] buttons = Object.FindObjectsByType<Button>(FindObjectsSortMode.None);
-        int fixedCount = 0;
-        foreach (var button in buttons)
+        try
         {
-            if (button.onClick.GetPersistentEventCount() == 0)
+            Button[] buttons = Object.FindObjectsByType<Button>(FindObjectsSortMode.None);
+            int fixedCount = 0;
+            
+            foreach (var button in buttons)
             {
-                string name = button.gameObject.name.ToLower();
-                if (TryConnectButton(button, name)) fixedCount++;
+                if (button.onClick.GetPersistentEventCount() == 0)
+                {
+                    string name = button.gameObject.name.ToLower();
+                    if (TryConnectButton(button, name))
+                    {
+                        fixedCount++;
+                    }
+                }
             }
+            
+            Debug.Log($"퀵픽스 완료: {fixedCount}개 버튼 수정됨");
         }
-        if (fixedCount > 0)
+        catch (System.Exception e)
         {
-            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-            EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
+            Debug.LogError($"퀵픽스 중 오류: {e.Message}");
         }
-        EditorUtility.DisplayDialog("퀵픽스 완료", $"{fixedCount}개 버튼 자동연결", "확인");
     }
 
-    // === 버튼 추천 함수 및 연결 ===
-    static string GetSuggestedFunction(string buttonName)
-    {
-        string n = buttonName.ToLower();
-        if (n.Contains("시작") || n.Contains("start")) return "MainMenuManager.OnClickStart()";
-        if (n.Contains("설정") || n.Contains("settings")) return "MainMenuManager.OnClickSettings()";
-        if (n.Contains("종료") || n.Contains("exit") || n.Contains("quit")) return "MainMenuManager.OnClickExit()";
-        if (n.Contains("typea") || n.Contains("타입a")) return "CharacterSelectManager.OnClickTypeA()";
-        if (n.Contains("typeb") || n.Contains("타입b")) return "CharacterSelectManager.OnClickTypeB()";
-        if (n.Contains("확인") || n.Contains("confirm")) return "CharacterSelectManager.OnClickConfirm()";
-        if (n.Contains("back") || n.Contains("뒤로")) return "SceneManager.LoadScene('MainScene')";
-        for (int i = 0; i < 10; i++)
-        {
-            if ((n.Contains("1p") || n.Contains("player1") || n.Contains("2p") || n.Contains("player2") || n.Contains("cpu")) && n.Contains(i.ToString()))
-                return $"CharacterSelectManager.OnClickCharacter({i})"; // 1P, 2P, CPU 모두 OnClickCharacter로 통일
-        }
-        if (n.Contains("typea") || n.Contains("타입a")) return "SettingsManager.OnTypeAButtonClicked()";
-        if (n.Contains("typeb") || n.Contains("타입b")) return "SettingsManager.OnTypeBButtonClicked()";
-        if (n.Contains("back") || n.Contains("뒤로") || n.Contains("돌아가기")) return "SettingsManager.OnBackButtonClicked()";
-        for (int i = 0; i < 3; i++)
-        {
-            if ((n.Contains("skill") || n.Contains("스킬")) && (n.Contains(i.ToString()) || n.Contains("skill" + (i + 1))))
-                return $"GameManager.OnClickPlayerSkill({i})";
-        }
-        if (n.Contains("pause") || n.Contains("일시정지")) return "Time.timeScale = Time.timeScale == 0 ? 1 : 0";
-        if (n.Contains("restart") || n.Contains("재시작")) return "SceneManager.LoadScene('GameScene')";
-        if (n.Contains("menu") || n.Contains("메뉴")) return "SceneManager.LoadScene('MainScene')";
-        return "";
-    }
-
+    // === 버튼 연결 시도 ===
     static bool TryConnectButton(Button button, string name)
     {
-        // MainMenuManager
-        var main = Object.FindFirstObjectByType<MainMenuManager>();
-        if (main != null)
+        try
         {
-            if (name.Contains("시작") || name.Contains("start")) { button.onClick.AddListener(main.OnClickStart); return true; }
-            if (name.Contains("설정") || name.Contains("settings")) { button.onClick.AddListener(main.OnClickSettings); return true; }
-            if (name.Contains("종료") || name.Contains("exit") || name.Contains("quit")) { button.onClick.AddListener(main.OnClickExit); return true; }
-        }
-        // CharacterSelectManager
-        var charSel = Object.FindFirstObjectByType<CharacterSelectManager>();
-        if (charSel != null)
-        {
-            if (name.Contains("typea") || name.Contains("타입a")) { button.onClick.AddListener(charSel.OnClickTypeA); return true; }
-            if (name.Contains("typeb") || name.Contains("타입b")) { button.onClick.AddListener(charSel.OnClickTypeB); return true; }
-            if (name.Contains("확인") || name.Contains("confirm")) { button.onClick.AddListener(charSel.OnClickConfirm); return true; }
-            if (name.Contains("back") || name.Contains("뒤로")) { button.onClick.AddListener(() => SceneManager.LoadScene("MainScene")); return true; }
-            for (int i = 0; i < 10; i++)
+            // MainScene 버튼들
+            if (name.Contains("시작") || name.Contains("start"))
             {
-                // 1P, 2P, CPU 버튼 모두 OnClickCharacter(index)를 호출하도록 통일
-                if ((name.Contains("1p") || name.Contains("player1") || name.Contains("2p") || name.Contains("player2") || name.Contains("cpu")) && name.Contains(i.ToString()))
-                { int idx = i; button.onClick.AddListener(() => charSel.OnClickCharacter(idx)); return true; }
+                var main = Object.FindFirstObjectByType<MainMenuManager>();
+                if (main != null)
+                {
+                    button.onClick.AddListener(main.OnClickStart);
+                    return true;
+                }
             }
-        }
-        // SettingsManager
-        var settings = Object.FindFirstObjectByType<SettingsManager>();
-        if (settings != null)
-        {
-            if (name.Contains("typea") || name.Contains("타입a")) { button.onClick.AddListener(settings.OnTypeAButtonClicked); return true; }
-            if (name.Contains("typeb") || name.Contains("타입b")) { button.onClick.AddListener(settings.OnTypeBButtonClicked); return true; }
-            if (name.Contains("back") || name.Contains("뒤로") || name.Contains("돌아가기")) { button.onClick.AddListener(settings.OnBackButtonClicked); return true; }
-        }
-        // GameManager
-        var game = Object.FindFirstObjectByType<GameManager>();
-        if (game != null)
-        {
-            for (int i = 0; i < 3; i++)
+            else if (name.Contains("설정") || name.Contains("settings"))
             {
-                if ((name.Contains("skill") || name.Contains("스킬")) && (name.Contains(i.ToString()) || name.Contains("skill" + (i + 1))))
-                { int idx = i; button.onClick.AddListener(() => game.OnClickPlayerSkill(idx)); return true; }
+                var main = Object.FindFirstObjectByType<MainMenuManager>();
+                if (main != null)
+                {
+                    button.onClick.AddListener(main.OnClickSettings);
+                    return true;
+                }
             }
-            if (name.Contains("pause") || name.Contains("일시정지")) { button.onClick.AddListener(() => { Time.timeScale = Time.timeScale == 0 ? 1 : 0; }); return true; }
-            if (name.Contains("restart") || name.Contains("재시작")) { button.onClick.AddListener(() => SceneManager.LoadScene("GameScene")); return true; }
-            if (name.Contains("menu") || name.Contains("메뉴")) { button.onClick.AddListener(() => SceneManager.LoadScene("MainScene")); return true; }
+            else if (name.Contains("종료") || name.Contains("exit") || name.Contains("quit"))
+            {
+                var main = Object.FindFirstObjectByType<MainMenuManager>();
+                if (main != null)
+                {
+                    button.onClick.AddListener(main.OnClickExit);
+                    return true;
+                }
+            }
+            
+            // CharacterSelectScene 버튼들
+            else if (name.Contains("typea") || name.Contains("타입a"))
+            {
+                var charSel = Object.FindFirstObjectByType<CharacterSelectManager>();
+                if (charSel != null)
+                {
+                    button.onClick.AddListener(charSel.OnClickTypeA);
+                    return true;
+                }
+            }
+            else if (name.Contains("typeb") || name.Contains("타입b"))
+            {
+                var charSel = Object.FindFirstObjectByType<CharacterSelectManager>();
+                if (charSel != null)
+                {
+                    button.onClick.AddListener(charSel.OnClickTypeB);
+                    return true;
+                }
+            }
+            else if (name.Contains("확인") || name.Contains("confirm"))
+            {
+                var charSel = Object.FindFirstObjectByType<CharacterSelectManager>();
+                if (charSel != null)
+                {
+                    button.onClick.AddListener(charSel.OnClickConfirm);
+                    return true;
+                }
+            }
+            
+            // SettingsScene 버튼들
+            else if (name.Contains("typea") || name.Contains("타입a"))
+            {
+                var settings = Object.FindFirstObjectByType<SettingsManager>();
+                if (settings != null)
+                {
+                    button.onClick.AddListener(settings.OnTypeAButtonClicked);
+                    return true;
+                }
+            }
+            else if (name.Contains("typeb") || name.Contains("타입b"))
+            {
+                var settings = Object.FindFirstObjectByType<SettingsManager>();
+                if (settings != null)
+                {
+                    button.onClick.AddListener(settings.OnTypeBButtonClicked);
+                    return true;
+                }
+            }
+            else if (name.Contains("뒤로") || name.Contains("back"))
+            {
+                var settings = Object.FindFirstObjectByType<SettingsManager>();
+                if (settings != null)
+                {
+                    button.onClick.AddListener(settings.OnBackButtonClicked);
+                    return true;
+                }
+            }
+            
+            // GameScene 버튼들
+            else if (name.Contains("skill"))
+            {
+                var game = Object.FindFirstObjectByType<GameManager>();
+                if (game != null)
+                {
+                    // 스킬 인덱스 추출
+                    for (int i = 0; i <= 2; i++)
+                    {
+                        if (name.Contains(i.ToString()))
+                        {
+                            int skillIndex = i;
+                            button.onClick.AddListener(() => game.OnClickPlayerSkill(skillIndex));
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            return false;
         }
-        return false;
+        catch (System.Exception e)
+        {
+            Debug.LogError($"버튼 연결 중 오류 ({button.gameObject.name}): {e.Message}");
+            return false;
+        }
+    }
+
+    // === 제안 함수 가져오기 ===
+    static string GetSuggestedFunction(string buttonName)
+    {
+        string name = buttonName.ToLower();
+        
+        if (name.Contains("시작") || name.Contains("start")) return "MainMenuManager.OnClickStart()";
+        if (name.Contains("설정") || name.Contains("settings")) return "MainMenuManager.OnClickSettings()";
+        if (name.Contains("종료") || name.Contains("exit") || name.Contains("quit")) return "MainMenuManager.OnClickExit()";
+        if (name.Contains("typea") || name.Contains("타입a")) return "CharacterSelectManager.OnClickTypeA()";
+        if (name.Contains("typeb") || name.Contains("타입b")) return "CharacterSelectManager.OnClickTypeB()";
+        if (name.Contains("확인") || name.Contains("confirm")) return "CharacterSelectManager.OnClickConfirm()";
+        if (name.Contains("뒤로") || name.Contains("back")) return "SettingsManager.OnBackButtonClicked()";
+        if (name.Contains("skill")) return "GameManager.OnClickPlayerSkill(인덱스)";
+        
+        return "";
     }
 } 

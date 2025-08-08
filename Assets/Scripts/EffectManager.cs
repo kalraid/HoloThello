@@ -27,6 +27,9 @@ public class EffectManager : MonoBehaviour
     
     [Header("오브젝트 풀 설정")]
     public List<PoolableObject> objectPools; // 인스펙터에서 설정할 풀 목록
+    
+    // 테스트용 skillButtonPrefab 필드 추가
+    public GameObject skillButtonPrefab;
 
     void Awake()
     {
@@ -84,11 +87,43 @@ public class EffectManager : MonoBehaviour
         if (textComponent != null)
         {
             textComponent.text = damage.ToString();
-            textComponent.color = isCritical ? Color.red : Color.white;
-            textComponent.fontSize = isCritical ? 24 : 18;
+            
+            // 데미지 크기에 따른 색상과 크기 설정
+            if (damage >= 100)
+            {
+                textComponent.color = Color.red;
+                textComponent.fontSize = 32;
+                textComponent.fontStyle = FontStyle.Bold;
+            }
+            else if (damage >= 50)
+            {
+                textComponent.color = Color.yellow;
+                textComponent.fontSize = 28;
+                textComponent.fontStyle = FontStyle.Bold;
+            }
+            else if (damage >= 20)
+            {
+                textComponent.color = Color.orange;
+                textComponent.fontSize = 24;
+            }
+            else
+            {
+                textComponent.color = Color.white;
+                textComponent.fontSize = 18;
+            }
+            
+            // 크리티컬 효과
+            if (isCritical)
+            {
+                textComponent.color = Color.red;
+                textComponent.fontSize += 8;
+                textComponent.fontStyle = FontStyle.Bold;
+            }
         }
         
-        StartCoroutine(AnimateAndReturn(effectObject, "DamageText", 1f));
+        // 애니메이션 타입을 크리티컬 여부에 따라 결정
+        AnimationType animType = isCritical ? AnimationType.ScaleUpDown : AnimationType.MoveUpFadeOut;
+        StartCoroutine(AnimateAndReturn(effectObject, "DamageText", 1.5f, animType));
     }
     
     public void ShowSkillEffect(Vector3 position, string skillName)

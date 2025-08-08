@@ -165,21 +165,80 @@ public class CharacterSelectManager : MonoBehaviour
 
     void LoadCharactersByType(CharacterType type)
     {
+        // CharacterDataManager 인스턴스 확인 및 초기화
         if (CharacterDataManager.Instance == null)
         {
-            Debug.LogError("CharacterDataManager.Instance가 null입니다!");
-            return;
+            Debug.LogWarning("CharacterDataManager.Instance가 null입니다. 초기화를 시도합니다.");
+            
+            // CharacterDataManager 찾기
+            CharacterDataManager cdm = FindFirstObjectByType<CharacterDataManager>();
+            if (cdm == null)
+            {
+                // CharacterDataManager가 없으면 생성
+                GameObject cdmGO = new GameObject("CharacterDataManager");
+                cdm = cdmGO.AddComponent<CharacterDataManager>();
+                Debug.Log("CharacterDataManager를 새로 생성했습니다.");
+            }
+            
+            // 다시 확인
+            if (CharacterDataManager.Instance == null)
+            {
+                Debug.LogError("CharacterDataManager 초기화에 실패했습니다!");
+                return;
+            }
         }
         
         currentTypeCharacters = CharacterDataManager.Instance.GetCharactersByType(type);
         currentCharacterType = type;
         
+        // 캐릭터 데이터 유효성 검사
+        if (currentTypeCharacters == null || currentTypeCharacters.Length == 0)
+        {
+            Debug.LogWarning($"타입 {type}의 캐릭터 데이터가 없습니다. 기본 캐릭터를 생성합니다.");
+            CreateDefaultCharacters(type);
+        }
+        
         // 선택 초기화
         selected1P = -1;
         selectedCPU = -1;
-        // selectStep = 0; // 삭제됨
         
-        UpdateAllUI(); // 변경됨
+        UpdateAllUI();
+    }
+    
+    /// <summary>
+    /// 기본 캐릭터 데이터 생성 (CharacterDataManager가 없을 때)
+    /// </summary>
+    private void CreateDefaultCharacters(CharacterType type)
+    {
+        int characterCount = 10; // 기본 10개 캐릭터
+        currentTypeCharacters = new CharacterData[characterCount];
+        
+        for (int i = 0; i < characterCount; i++)
+        {
+            currentTypeCharacters[i] = new CharacterData
+            {
+                id = i,
+                name = type == CharacterType.TypeA ? $"Hololive_{i + 1}" : $"Cat_{i + 1}",
+                type = type,
+                sprite = characterSprites != null && i < characterSprites.Length ? characterSprites[i] : null,
+                color = GetDefaultCharacterColor(i)
+            };
+        }
+        
+        Debug.Log($"{type} 타입의 기본 캐릭터 {characterCount}개를 생성했습니다.");
+    }
+    
+    /// <summary>
+    /// 기본 캐릭터 색상 반환
+    /// </summary>
+    private Color GetDefaultCharacterColor(int index)
+    {
+        Color[] defaultColors = {
+            Color.red, Color.blue, Color.green, Color.yellow, Color.magenta,
+            Color.cyan, Color.white, Color.gray, Color.black, Color.orange
+        };
+        
+        return index < defaultColors.Length ? defaultColors[index] : Color.white;
     }
     
     public void OnClickTypeA()
@@ -495,6 +554,25 @@ public class CharacterSelectManager : MonoBehaviour
         {
             selectedCPU = characterIndex;
             UpdateAllUI();
+        }
+    }
+
+    /// <summary>
+    /// 뒤로가기 버튼 클릭
+    /// </summary>
+    public void OnClickBack()
+    {
+        Debug.Log("뒤로가기 버튼 클릭됨");
+        
+        // MainScene으로 이동
+        if (SceneController.Instance != null)
+        {
+            SceneController.Instance.LoadMainScene();
+        }
+        else
+        {
+            // SceneController가 없으면 직접 로드
+            SceneManager.LoadScene("MainScene");
         }
     }
 

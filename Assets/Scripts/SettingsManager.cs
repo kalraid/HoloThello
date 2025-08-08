@@ -213,7 +213,17 @@ public class SettingsManager : MonoBehaviour
     public void OnBackButtonClicked()
     {
         GameData.Instance.SaveSettings();
-        UnityEngine.SceneManagement.SceneManager.LoadScene("MainScene");
+        
+        // SceneController를 사용하여 MainScene으로 이동
+        if (SceneController.Instance != null)
+        {
+            SceneController.Instance.LoadMainScene();
+        }
+        else
+        {
+            // SceneController가 없으면 직접 로드
+            UnityEngine.SceneManagement.SceneManager.LoadScene("MainScene");
+        }
     }
 
     void UpdateTypeUI()
