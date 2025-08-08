@@ -41,17 +41,17 @@ public class ExecuteSetup : MonoBehaviour
             // 버튼 이름에 따라 이벤트 연결
             if (buttonName.Contains("시작하기"))
             {
-                button.onClick.AddListener(mainManager.OnClickStart);
+                button.onClick.AddListener(mainManager.OnStartButtonClicked);
                 Debug.Log("시작하기 버튼 이벤트 연결됨");
             }
             else if (buttonName.Contains("설정하기"))
             {
-                button.onClick.AddListener(mainManager.OnClickSettings);
+                button.onClick.AddListener(mainManager.OnSettingsButtonClicked);
                 Debug.Log("설정하기 버튼 이벤트 연결됨");
             }
             else if (buttonName.Contains("종료하기"))
             {
-                button.onClick.AddListener(mainManager.OnClickExit);
+                button.onClick.AddListener(mainManager.OnQuitButtonClicked);
                 Debug.Log("종료하기 버튼 이벤트 연결됨");
             }
         }

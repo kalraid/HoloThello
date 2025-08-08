@@ -240,9 +240,9 @@ public class MainSceneSetup : MonoBehaviour
         Button settingsBtn = settingsButton.GetComponent<Button>();
         Button quitBtn = quitButton.GetComponent<Button>();
         
-        startBtn.onClick.AddListener(() => manager.OnClickStart());
-        settingsBtn.onClick.AddListener(() => manager.OnClickSettings());
-        quitBtn.onClick.AddListener(() => manager.OnClickExit());
+        startBtn.onClick.AddListener(() => manager.OnStartButtonClicked());
+        settingsBtn.onClick.AddListener(() => manager.OnSettingsButtonClicked());
+        quitBtn.onClick.AddListener(() => manager.OnQuitButtonClicked());
         
         Debug.Log("메인 메뉴 버튼들 생성 완료");
     }

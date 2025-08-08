@@ -1146,11 +1146,59 @@ public class GameManager : MonoBehaviour
     // OnClickPlayerSkill 메서드가 없을 경우 추가
     public void OnClickPlayerSkill(int idx)
     {
-        // 실제 스킬 사용 로직 구현 (예시)
-        // 예: 플레이어 스킬 사용 처리, 쿨타임 적용, UI 갱신 등
-        // 아래는 예시 코드, 실제 프로젝트 로직에 맞게 구현 필요
-        if (playerSkillCooldowns[idx] > 0 || playerSkillUsed[idx]) return;
-        // ... (스킬 사용 로직) ...
-        UpdateAllUI();
+        UseSkill(idx);
+    }
+
+    /// <summary>
+    /// 플레이어 스킬 버튼 클릭 (UI 이벤트용)
+    /// </summary>
+    public void OnPlayerSkillClicked()
+    {
+        // 버튼의 인덱스를 찾아서 스킬 사용
+        for (int i = 0; i < playerSkillButtons.Length; i++)
+        {
+            if (UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject == playerSkillButtons[i].gameObject)
+            {
+                UseSkill(i);
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// CPU 스킬 버튼 클릭 (UI 이벤트용)
+    /// </summary>
+    public void OnCPUSkillClicked()
+    {
+        // CPU 스킬은 자동으로 처리되므로 UI에서 직접 호출하지 않음
+        Debug.Log("CPU 스킬은 자동으로 처리됩니다.");
+    }
+
+    /// <summary>
+    /// 계속하기 버튼 클릭
+    /// </summary>
+    public void OnContinueButtonClicked()
+    {
+        Debug.Log("계속하기 버튼 클릭됨");
+        
+        // CharacterSelectScene으로 이동
+        if (SceneController.Instance != null)
+        {
+            SceneController.Instance.LoadCharacterSelectScene();
+        }
+        else
+        {
+            // SceneController가 없으면 직접 로드
+            UnityEngine.SceneManagement.SceneManager.LoadScene("CharacterSelectScene");
+        }
+    }
+
+    /// <summary>
+    /// 재시작 버튼 클릭
+    /// </summary>
+    public void OnRestartButtonClicked()
+    {
+        Debug.Log("재시작 버튼 클릭됨");
+        RestartGame();
     }
 }

@@ -370,13 +370,14 @@ Canvas
 - [x] **MainScene 버튼 연결 완료**
 - [x] **CharacterSelectScene 버튼 연결 완료**
 - [x] **SettingsScene 버튼 연결 완료**
-- [ ] GameManager의 모든 UI 컴포넌트 연결
-- [ ] EffectManager의 프리팹 연결
-- [ ] BoardManager의 보드 셀 연결
-- [ ] TestManager의 테스트 UI 연결
-- [ ] 기능별 테스트 버튼 설정
-- [ ] 스킬 버튼의 CooldownText 설정
-- [ ] HP Bar 세그먼트 설정
+- [x] **GameScene 버튼 연결 완료**
+- [x] GameManager의 모든 UI 컴포넌트 연결
+- [x] EffectManager의 프리팹 연결
+- [x] BoardManager의 보드 셀 연결
+- [x] TestManager의 테스트 UI 연결
+- [x] 기능별 테스트 버튼 설정
+- [x] 스킬 버튼의 CooldownText 설정
+- [x] HP Bar 세그먼트 설정
 - [ ] 게임 실행 및 테스트 확인
 - [ ] 모든 기능 정상 작동 확인
 

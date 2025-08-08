@@ -1389,7 +1389,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 250
+  orthographic size: 310
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
@@ -1414,7 +1414,7 @@ Transform:
   m_GameObject: {fileID: 477346903}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 452, y: 234, z: -10}
+  m_LocalPosition: {x: 570, y: 300, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2353,6 +2353,37 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &784841861
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 784841862}
+  m_Layer: 0
+  m_Name: BoardContainer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &784841862
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 784841861}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 0}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &785753145
 GameObject:
   m_ObjectHideFlags: 0
@@ -3111,18 +3142,12 @@ MonoBehaviour:
   playerCharacterImage: {fileID: 1877397328}
   cpuCharacterImage: {fileID: 993749892}
   backgroundImage: {fileID: 0}
-  playerSkillButtons:
-  - {fileID: 497128156}
-  - {fileID: 171620763}
-  - {fileID: 594854457}
-  cpuSkillButtons:
-  - {fileID: 1402469300}
-  - {fileID: 1371397367}
-  - {fileID: 785753146}
+  playerSkillButtons: []
+  cpuSkillButtons: []
   characterDiscSprites:
   - {fileID: 417377324556505165, guid: 7b326da3a7090e54babdd21eb70e3180, type: 3}
   backgroundSprites: []
-  discPrefab: {fileID: 0}
+  discPrefab: {fileID: 2452062002911425508, guid: 6d769916b6010a24f806df66c312d4ec, type: 3}
   playerHp: 10000
   cpuHp: 10000
   skillCooldownValue: 5
@@ -5192,7 +5217,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   boardSize: 8
   discPrefab: {fileID: 2452062002911425508, guid: 6d769916b6010a24f806df66c312d4ec, type: 3}
-  boardContainer: {fileID: 726895854}
+  boardContainer: {fileID: 784841862}
   turnText: {fileID: 0}
   resultText: {fileID: 0}
   blackScoreText: {fileID: 0}
@@ -5698,4 +5723,5 @@ SceneRoots:
   - {fileID: 477622113}
   - {fileID: 130186011}
   - {fileID: 477346907}
+  - {fileID: 784841862}
   - {fileID: 1723838572}

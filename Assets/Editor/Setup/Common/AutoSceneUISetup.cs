@@ -143,9 +143,9 @@ public class AutoSceneUISetup : MonoBehaviour
         settingsButton.onClick.RemoveAllListeners();
         exitButton.onClick.RemoveAllListeners();
         
-        startButton.onClick.AddListener(mainManager.OnClickStart);
-        settingsButton.onClick.AddListener(mainManager.OnClickSettings);
-        exitButton.onClick.AddListener(mainManager.OnClickExit);
+        startButton.onClick.AddListener(mainManager.OnStartButtonClicked);
+        settingsButton.onClick.AddListener(mainManager.OnSettingsButtonClicked);
+        exitButton.onClick.AddListener(mainManager.OnQuitButtonClicked);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);

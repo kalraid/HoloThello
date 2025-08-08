@@ -43,9 +43,11 @@ public class AudioManager : MonoBehaviour
             Instance = this;
             DontDestroyOnLoad(gameObject);
             InitializeAudio();
+            Debug.Log("[AudioManager] 새로운 AudioManager 인스턴스 생성됨");
         }
         else
         {
+            Debug.Log("[AudioManager] 기존 AudioManager가 존재하여 새 인스턴스 제거");
             Destroy(gameObject);
         }
     }
@@ -71,7 +73,11 @@ public class AudioManager : MonoBehaviour
         // 볼륨 설정 로드 및 적용
         LoadVolumeSettings();
         
-        // 배경음악 시작
+        // 배경음악 시작 (기존 BGM 중지 후)
+        if (bgmSource.isPlaying)
+        {
+            bgmSource.Stop();
+        }
         PlayBGM(0);
     }
 
@@ -199,9 +205,14 @@ public class AudioManager : MonoBehaviour
     {
         if (bgmClips != null && index >= 0 && index < bgmClips.Length && bgmSource != null)
         {
+            // 기존 BGM 중지
+            StopBGM();
+            
             currentBGMIndex = index;
             bgmSource.clip = bgmClips[index];
             bgmSource.Play();
+            
+            Debug.Log($"[AudioManager] BGM 재생: {bgmClips[index].name}");
         }
     }
     
@@ -216,7 +227,25 @@ public class AudioManager : MonoBehaviour
         if (bgmSource != null)
         {
             bgmSource.Stop();
+            Debug.Log("[AudioManager] BGM 중지됨");
         }
+    }
+    
+    public void StopAllAudio()
+    {
+        // BGM 중지
+        StopBGM();
+        
+        // 모든 활성 SFX 중지
+        foreach (AudioSource source in activeAudioSources)
+        {
+            if (source != null && source.isPlaying)
+            {
+                source.Stop();
+            }
+        }
+        
+        Debug.Log("[AudioManager] 모든 오디오 중지됨");
     }
     
     public void ToggleBGM()

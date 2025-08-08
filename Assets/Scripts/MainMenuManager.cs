@@ -26,6 +26,10 @@ public class MainMenuManager : MonoBehaviour
     public AudioSource buttonClickSource;
     public AudioClip buttonClickSound;
     
+    [Header("UI 이미지")]
+    public Image backgroundImage;
+    public Image characterImage;
+    
     void Start()
     {
         if (!ValidateComponents())

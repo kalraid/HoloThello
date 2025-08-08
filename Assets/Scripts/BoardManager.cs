@@ -61,30 +61,71 @@ public class BoardManager : MonoBehaviour
     {
         bool isValid = true;
         if (discPrefab == null) { Debug.LogError("discPrefab이 할당되지 않았습니다."); isValid = false; }
-        if (boardContainer == null) { Debug.LogError("boardContainer가 할당되지 않았습니다."); isValid = false; }
+        
+        // BoardArea 확인
+        GameObject boardArea = GameObject.Find("BoardArea");
+        if (boardArea == null) { Debug.LogError("BoardArea를 찾을 수 없습니다."); isValid = false; }
+        
         return isValid;
     }
     
     public void InitializeBoard()
     {
         board = new Disc[boardSize, boardSize];
+        
+        // BoardArea 찾기
+        GameObject boardArea = GameObject.Find("BoardArea");
+        if (boardArea == null)
+        {
+            Debug.LogError("[InitializeBoard] BoardArea를 찾을 수 없습니다!");
+            return;
+        }
+        
+        Debug.Log($"[InitializeBoard] BoardArea: {boardArea.name}");
+        
         for (int x = 0; x < boardSize; x++)
         {
             for (int y = 0; y < boardSize; y++)
             {
-                GameObject discObj = Instantiate(discPrefab, boardContainer);
-                discObj.transform.localPosition = new Vector3(x, y, 0);
+                // Cell_x_x 오브젝트를 BoardArea에서 찾기
+                string cellName = $"Cell_{x}_{y}";
+                Transform cellTransform = boardArea.transform.Find(cellName);
+                
+                if (cellTransform == null)
+                {
+                    Debug.LogError($"[InitializeBoard] {cellName}을 BoardArea에서 찾을 수 없습니다!");
+                    continue;
+                }
+                
+                GameObject discObj = Instantiate(discPrefab, cellTransform);
+                // Cell 안에 정확히 배치되도록 위치 조정
+                discObj.transform.localPosition = Vector3.zero;
+                // 스케일을 Cell에 맞게 조정 (4배 크기)
+                discObj.transform.localScale = new Vector3(3.2f, 3.2f, 1f);
+                
+                // Disc 컴포넌트 확인
                 Disc disc = discObj.GetComponent<Disc>();
                 if (disc == null)
                 {
                     Debug.LogError($"[InitializeBoard] Disc 프리팹에 Disc 컴포넌트가 없습니다! ({x},{y})");
+                    continue;
                 }
-                else
+                
+                // SpriteRenderer 확인 및 설정
+                SpriteRenderer spriteRenderer = discObj.GetComponent<SpriteRenderer>();
+                if (spriteRenderer == null)
                 {
-                    Debug.Log($"[InitializeBoard] board[{x},{y}]에 Disc 할당 완료");
+                    spriteRenderer = discObj.AddComponent<SpriteRenderer>();
+                    Debug.Log($"[InitializeBoard] {discObj.name}에 SpriteRenderer를 추가했습니다.");
                 }
+                
+                // 렌더링 순서 설정
+                spriteRenderer.sortingOrder = 2; // UI 위에 표시되도록
+                
+                Debug.Log($"[InitializeBoard] board[{x},{y}]에 Disc 할당 완료");
                 disc.Initialize(x, y, this);
-                // 빈 칸: SetDisc(false, null)로 초기화
+                // 빈 칸을 초록색으로 설정
+                disc.SetEmpty();
                 board[x, y] = disc;
             }
         }

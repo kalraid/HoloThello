@@ -24,7 +24,7 @@ public class ButtonUtilityEditor : MonoBehaviour
     [MenuItem("Tools/Button Utility/버튼 연동 가이드")]
     public static void ShowButtonConnectionGuide()
     {
-        string guide = @"=== 버튼 연동 가이드 ===\n\n1. MainScene 버튼들:\n   - '시작하기' 또는 'Start' -> MainMenuManager.OnClickStart()\n   - '설정하기' 또는 'Settings' -> MainMenuManager.OnClickSettings()\n   - '종료하기' 또는 'Exit/Quit' -> MainMenuManager.OnClickExit()\n\n2. CharacterSelectScene 버튼들:\n   - 'TypeA' 또는 '타입A' -> CharacterSelectManager.OnClickTypeA()\n   - 'TypeB' 또는 '타입B' -> CharacterSelectManager.OnClickTypeB()\n   - '1P_0~9' -> CharacterSelectManager.OnClickCharacter(인덱스)\n   - '2P_0~9' 또는 'CPU_0~9' -> CharacterSelectManager.OnClickCharacter(인덱스)\n   - '확인' 또는 'Confirm' -> CharacterSelectManager.OnClickConfirm()\n   - '뒤로' 또는 'Back' -> MainScene으로 이동\n\n3. SettingsScene 버튼들:\n   - 'TypeA' 또는 '타입A' -> SettingsManager.OnTypeAButtonClicked()\n   - 'TypeB' 또는 '타입B' -> SettingsManager.OnTypeBButtonClicked()\n   - '뒤로' 또는 'Back' -> SettingsManager.OnBackButtonClicked()\n\n4. GameScene 버튼들:\n   - 'Skill0~2' 또는 '스킬0~2' -> GameManager.OnClickPlayerSkill(인덱스)\n   - '일시정지' 또는 'Pause' -> 일시정지 기능\n   - '재시작' 또는 'Restart' -> 게임 재시작\n   - '메뉴' 또는 'Menu' -> 메인 메뉴로 이동\n\n자동 연결: Tools > Button Utility > 자동연결 (모든 씬)\n상태 체크: Tools > Button Utility > 상태체크 (현재 씬)\n보고서: Tools > Button Utility > 보고서 생성 (현재 씬)\n퀵픽스: Tools > Button Utility > 퀵픽스 (현재 씬)\n";
+        string guide = @"=== 버튼 연동 가이드 ===\n\n1. MainScene 버튼들:\n   - '시작하기' 또는 'Start' -> MainMenuManager.OnStartButtonClicked()\n   - '설정하기' 또는 'Settings' -> MainMenuManager.OnSettingsButtonClicked()\n   - '종료하기' 또는 'Exit/Quit' -> MainMenuManager.OnQuitButtonClicked()\n\n2. CharacterSelectScene 버튼들:\n   - 'TypeA' 또는 '타입A' -> CharacterSelectManager.OnClickTypeA()\n   - 'TypeB' 또는 '타입B' -> CharacterSelectManager.OnClickTypeB()\n   - '1P_0~9' -> CharacterSelectManager.OnClickCharacter(인덱스)\n   - '2P_0~9' 또는 'CPU_0~9' -> CharacterSelectManager.OnClickCharacter(인덱스)\n   - '확인' 또는 'Confirm' -> CharacterSelectManager.OnClickConfirm()\n   - '뒤로' 또는 'Back' -> MainScene으로 이동\n\n3. SettingsScene 버튼들:\n   - 'TypeA' 또는 '타입A' -> SettingsManager.OnTypeAButtonClicked()\n   - 'TypeB' 또는 '타입B' -> SettingsManager.OnTypeBButtonClicked()\n   - '뒤로' 또는 'Back' -> SettingsManager.OnBackButtonClicked()\n\n4. GameScene 버튼들:\n   - 'Skill0~2' 또는 '스킬0~2' -> GameManager.OnClickPlayerSkill(인덱스)\n   - '일시정지' 또는 'Pause' -> 일시정지 기능\n   - '재시작' 또는 'Restart' -> 게임 재시작\n   - '메뉴' 또는 'Menu' -> 메인 메뉴로 이동\n\n자동 연결: Tools > Button Utility > 자동연결 (모든 씬)\n상태 체크: Tools > Button Utility > 상태체크 (현재 씬)\n보고서: Tools > Button Utility > 보고서 생성 (현재 씬)\n퀵픽스: Tools > Button Utility > 퀵픽스 (현재 씬)\n";
         EditorUtility.DisplayDialog("버튼 연동 가이드", guide, "확인");
     }
 
@@ -207,7 +207,7 @@ public class ButtonUtilityEditor : MonoBehaviour
                 var main = Object.FindFirstObjectByType<MainMenuManager>();
                 if (main != null)
                 {
-                    button.onClick.AddListener(main.OnClickStart);
+                    button.onClick.AddListener(main.OnStartButtonClicked);
                     return true;
                 }
             }
@@ -216,7 +216,7 @@ public class ButtonUtilityEditor : MonoBehaviour
                 var main = Object.FindFirstObjectByType<MainMenuManager>();
                 if (main != null)
                 {
-                    button.onClick.AddListener(main.OnClickSettings);
+                    button.onClick.AddListener(main.OnSettingsButtonClicked);
                     return true;
                 }
             }
@@ -225,7 +225,7 @@ public class ButtonUtilityEditor : MonoBehaviour
                 var main = Object.FindFirstObjectByType<MainMenuManager>();
                 if (main != null)
                 {
-                    button.onClick.AddListener(main.OnClickExit);
+                    button.onClick.AddListener(main.OnQuitButtonClicked);
                     return true;
                 }
             }
@@ -321,9 +321,9 @@ public class ButtonUtilityEditor : MonoBehaviour
     {
         string name = buttonName.ToLower();
         
-        if (name.Contains("시작") || name.Contains("start")) return "MainMenuManager.OnClickStart()";
-        if (name.Contains("설정") || name.Contains("settings")) return "MainMenuManager.OnClickSettings()";
-        if (name.Contains("종료") || name.Contains("exit") || name.Contains("quit")) return "MainMenuManager.OnClickExit()";
+        if (name.Contains("시작") || name.Contains("start")) return "MainMenuManager.OnStartButtonClicked()";
+        if (name.Contains("설정") || name.Contains("settings")) return "MainMenuManager.OnSettingsButtonClicked()";
+        if (name.Contains("종료") || name.Contains("exit") || name.Contains("quit")) return "MainMenuManager.OnQuitButtonClicked()";
         if (name.Contains("typea") || name.Contains("타입a")) return "CharacterSelectManager.OnClickTypeA()";
         if (name.Contains("typeb") || name.Contains("타입b")) return "CharacterSelectManager.OnClickTypeB()";
         if (name.Contains("확인") || name.Contains("confirm")) return "CharacterSelectManager.OnClickConfirm()";

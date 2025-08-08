@@ -17,9 +17,18 @@ public class Disc : MonoBehaviour
     {
         // mainRenderer, miniRenderer 자동 할당
         mainRenderer = GetComponent<SpriteRenderer>();
+        
+        // SpriteRenderer가 없으면 추가
+        if (mainRenderer == null)
+        {
+            mainRenderer = gameObject.AddComponent<SpriteRenderer>();
+            Debug.Log($"{gameObject.name}에 SpriteRenderer를 추가했습니다.");
+        }
+        
         // 자식 오브젝트 이름 수정: Minilmage -> MiniImage
         Transform mini = transform.Find("MiniImage");
         if (mini != null) miniRenderer = mini.GetComponent<SpriteRenderer>();
+        
         if (mainRenderer == null)
             Debug.LogError($"{gameObject.name}의 mainRenderer가 null입니다! (Awake)");
     }
@@ -39,15 +48,104 @@ public class Disc : MonoBehaviour
     {
         this.isBlack = isBlack;
         hasPiece = true;
+        
+        // mainRenderer가 null이면 강제로 초기화
+        if (mainRenderer == null)
+        {
+            mainRenderer = GetComponent<SpriteRenderer>();
+            if (mainRenderer == null)
+            {
+                mainRenderer = gameObject.AddComponent<SpriteRenderer>();
+                Debug.Log($"{gameObject.name}에 SpriteRenderer를 추가했습니다. (SetDisc)");
+            }
+        }
+        
         if (mainRenderer != null)
         {
-            mainRenderer.color = isBlack ? Color.black : Color.white;
+            // 색상을 더 명확하게 구분
+            if (isBlack)
+            {
+                mainRenderer.color = Color.black; // 1P = 검정색
+            }
+            else
+            {
+                mainRenderer.color = Color.white; // 2P = 흰색
+            }
+            // 렌더링 순서 설정
+            mainRenderer.sortingOrder = 3;
+            // 스프라이트가 할당되어 있지 않으면 기본 원형 스프라이트 사용
+            if (mainRenderer.sprite == null)
+            {
+                // 기본 원형 스프라이트 생성 또는 할당
+                mainRenderer.sprite = CreateDefaultDiscSprite();
+            }
         }
         if (miniRenderer != null)
         {
             miniRenderer.sprite = miniSprite;
             miniRenderer.color = Color.white;
+            miniRenderer.sortingOrder = 4; // 미니 이미지는 더 위에 표시
         }
+    }
+    
+    // 빈 칸으로 설정 (초록색)
+    public void SetEmpty()
+    {
+        hasPiece = false;
+        
+        // mainRenderer가 null이면 강제로 초기화
+        if (mainRenderer == null)
+        {
+            mainRenderer = GetComponent<SpriteRenderer>();
+            if (mainRenderer == null)
+            {
+                mainRenderer = gameObject.AddComponent<SpriteRenderer>();
+                Debug.Log($"{gameObject.name}에 SpriteRenderer를 추가했습니다. (SetEmpty)");
+            }
+        }
+        
+        if (mainRenderer != null)
+        {
+            mainRenderer.color = Color.green; // 빈 칸 = 초록색
+            mainRenderer.sortingOrder = 2;
+        }
+        if (miniRenderer != null)
+        {
+            miniRenderer.sprite = null;
+        }
+    }
+    
+    // 기본 원형 스프라이트 생성 (필요시)
+    private Sprite CreateDefaultDiscSprite()
+    {
+        // 간단한 원형 텍스처 생성
+        int size = 64;
+        Texture2D texture = new Texture2D(size, size);
+        Color[] pixels = new Color[size * size];
+        
+        Vector2 center = new Vector2(size / 2f, size / 2f);
+        float radius = size / 2f;
+        
+        for (int x = 0; x < size; x++)
+        {
+            for (int y = 0; y < size; y++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), center);
+                if (distance <= radius)
+                {
+                    pixels[y * size + x] = Color.white;
+                }
+                else
+                {
+                    pixels[y * size + x] = Color.clear;
+                }
+            }
+        }
+        
+        texture.SetPixels(pixels);
+        texture.Apply();
+        
+        return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
     }
     
     public void SetPiece(bool isBlack)
@@ -101,10 +199,15 @@ public class Disc : MonoBehaviour
     
     public bool HasPiece()
     {
+        // mainRenderer가 null이면 강제로 초기화
         if (mainRenderer == null)
         {
-            Debug.LogError($"{gameObject.name}의 mainRenderer가 null입니다! (HasPiece)");
-            return false;
+            mainRenderer = GetComponent<SpriteRenderer>();
+            if (mainRenderer == null)
+            {
+                mainRenderer = gameObject.AddComponent<SpriteRenderer>();
+                Debug.Log($"{gameObject.name}에 SpriteRenderer를 추가했습니다. (HasPiece)");
+            }
         }
         return hasPiece;
     }
