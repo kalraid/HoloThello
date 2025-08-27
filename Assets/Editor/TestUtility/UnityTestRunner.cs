@@ -128,6 +128,9 @@ public class UnityTestRunner : MonoBehaviour
         gameData.isPlayer1First = true;
         gameData.diceResult1P = 3;
         gameData.diceResult2P = 2;
+        
+        // 🎥 테스트 모드 비활성화 (카메라 자동 이동 방지)
+        gameData.isTestMode = false;
 
         // 3. 캐릭터 데이터 생성 및 스킬 커스텀
         CharacterData cpu1 = new CharacterData();

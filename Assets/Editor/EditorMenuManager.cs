@@ -26,92 +26,84 @@ public static class EditorMenuManager
         CreateDiscPrefab.CreateDisc();
     }
     
-    // === 이미지 생성 ===
-    [MenuItem(EditorConstants.Menus.TOOLS_BASE + "Generate Cat Images", false, 20)]
-    public static void GenerateCatImages()
+    // === 실제 동작 테스트 (중요!) ===
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "🎮 CPU vs CPU 자동 대전", false, 30)]
+    public static void CPUVsCPUTest()
     {
-        CatImageGenerator.GenerateCatImages();
+        UnityTestRunner.TestCPUVsCPUBattle();
     }
     
-    // === 테스트 관련 ===
-    [MenuItem(EditorConstants.Menus.TEST_MENU + "Run All Tests", false, 30)]
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "🔄 모든 테스트 실행", false, 31)]
     public static void RunAllTests()
     {
         UnityTestRunner.RunAllTests();
     }
     
-    [MenuItem(EditorConstants.Menus.TEST_MENU + "Validate Project", false, 31)]
-    public static void ValidateProject()
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "⚙️ 테스트 모드 토글", false, 32)]
+    public static void ToggleTestMode()
     {
-        UnityTestRunner.ValidateProject();
+        if (GameData.Instance != null)
+        {
+            GameData.Instance.ToggleTestMode();
+        }
+        else
+        {
+            Debug.LogWarning("[EditorMenuManager] GameData.Instance를 찾을 수 없습니다. 게임을 실행한 후 다시 시도해주세요.");
+        }
     }
     
-    //[MenuItem(EditorConstants.Menus.TEST_MENU + "CPU vs CPU Test", false, 32)]
-    //public static void CPUVsCPUTest()
-    //{
-    //    UnityTestRunner.CPUVsCPUTest();
-    //}
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "🔍 오셀로 판 투명화 (테스트)", false, 33)]
+    public static void MakeBoardTransparent()
+    {
+        BoardManager boardManager = Object.FindObjectOfType<BoardManager>();
+        if (boardManager != null)
+        {
+            boardManager.MakeBoardTransparent();
+        }
+        else
+        {
+            Debug.LogWarning("[EditorMenuManager] BoardManager를 찾을 수 없습니다. 게임을 실행한 후 다시 시도해주세요.");
+        }
+    }
     
-    // === 버튼 유틸리티 ===
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Auto Connect All Scenes", false, 40)]
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "🎨 오셀로 판 색상 복원", false, 34)]
+    public static void RestoreBoardColors()
+    {
+        BoardManager boardManager = Object.FindObjectOfType<BoardManager>();
+        if (boardManager != null)
+        {
+            boardManager.RestoreBoardColors();
+        }
+        else
+        {
+            Debug.LogWarning("[EditorMenuManager] BoardManager를 찾을 수 없습니다. 게임을 실행한 후 다시 시도해주세요.");
+        }
+    }
+    
+    // === 버튼 자동 연결 (실제 동작) ===
+    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "🔗 모든 씬 버튼 자동 연결", false, 40)]
     public static void AutoConnectAllScenes()
     {
         ButtonUtilityEditor.ConnectAllButtonEvents();
     }
     
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Check Current Scene", false, 41)]
-    public static void CheckCurrentScene()
-    {
-        ButtonUtilityEditor.CheckButtonConnections();
-    }
-    
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Generate Report", false, 42)]
-    public static void GenerateButtonReport()
-    {
-        ButtonUtilityEditor.GenerateButtonConnectionReport();
-    }
-    
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Quick Fix", false, 43)]
+    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "🔧 현재 씬 버튼 빠른 수정", false, 41)]
     public static void QuickFixButtons()
     {
         ButtonUtilityEditor.QuickFixUnconnectedButtons();
     }
     
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Connection Guide", false, 44)]
-    public static void ShowConnectionGuide()
-    {
-        ButtonUtilityEditor.ShowButtonConnectionGuide();
-    }
-    
-    // === 최적화 도구 ===
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Performance Check", false, 50)]
-    public static void PerformanceCheck()
-    {
-        EditorOptimizationUtility.CheckEditorPerformance();
-    }
-    
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Cleanup Temporary Objects", false, 51)]
+    // === 최적화 도구 (실제 동작) ===
+    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "🧹 임시 오브젝트 정리", false, 50)]
     public static void CleanupTemporaryObjects()
     {
         EditorOptimizationUtility.CleanupTemporaryObjects();
     }
     
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Validate All Scripts", false, 52)]
-    public static void ValidateAllScripts()
+    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "📊 성능 체크", false, 51)]
+    public static void PerformanceCheck()
     {
-        EditorOptimizationUtility.ValidateAllEditorScripts();
-    }
-    
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Optimize Debug Logs", false, 53)]
-    public static void OptimizeDebugLogs()
-    {
-        EditorOptimizationUtility.OptimizeDebugLogs();
-    }
-    
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Generate Report", false, 54)]
-    public static void GenerateOptimizationReport()
-    {
-        EditorOptimizationUtility.GenerateOptimizationReport();
+        EditorOptimizationUtility.CheckEditorPerformance();
     }
     
     // === 설정 관련 ===
@@ -158,9 +150,10 @@ public static class EditorMenuManager
     // === 메뉴 유효성 검사 ===
     [MenuItem(EditorConstants.Menus.TOOLS_BASE + "Complete Setup", true)]
     [MenuItem(EditorConstants.Menus.TOOLS_BASE + "Quick Setup", true)]
-    [MenuItem(EditorConstants.Menus.TEST_MENU + "Run All Tests", true)]
-    [MenuItem(EditorConstants.Menus.TEST_MENU + "Validate Project", true)]
-    [MenuItem(EditorConstants.Menus.TEST_MENU + "CPU vs CPU Test", true)]
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "🔄 모든 테스트 실행", true)]
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "🎮 CPU vs CPU 자동 대전", true)]
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "🔍 오셀로 판 투명화 (테스트)", true)]
+    [MenuItem(EditorConstants.Menus.TEST_MENU + "🎨 오셀로 판 색상 복원", true)]
     public static bool ValidateTestMenus()
     {
         return !Application.isPlaying;
@@ -172,26 +165,15 @@ public static class EditorMenuManager
         return !Application.isPlaying;
     }
     
-    [MenuItem(EditorConstants.Menus.TOOLS_BASE + "Generate Cat Images", true)]
-    public static bool ValidateImageMenus()
-    {
-        return !Application.isPlaying;
-    }
-    
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Auto Connect All Scenes", true)]
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Check Current Scene", true)]
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Generate Report", true)]
-    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "Quick Fix", true)]
+    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "🔗 모든 씬 버튼 자동 연결", true)]
+    [MenuItem(EditorConstants.Menus.BUTTON_UTILITY_MENU + "🔧 현재 씬 버튼 빠른 수정", true)]
     public static bool ValidateButtonMenus()
     {
         return !Application.isPlaying;
     }
     
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Performance Check", true)]
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Cleanup Temporary Objects", true)]
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Validate All Scripts", true)]
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Optimize Debug Logs", true)]
-    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "Generate Report", true)]
+    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "📊 성능 체크", true)]
+    [MenuItem(EditorConstants.Menus.EDITOR_OPTIMIZATION_MENU + "🧹 임시 오브젝트 정리", true)]
     public static bool ValidateOptimizationMenus()
     {
         return !Application.isPlaying;

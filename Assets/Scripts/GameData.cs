@@ -46,6 +46,9 @@ public class GameData : MonoBehaviour
     public int screenHeight = 1080;
     public bool isFullscreen = true;
     
+    [Header("테스트 모드")]
+    public bool isTestMode = false; // 테스트 모드 활성화 플래그
+    
     void Awake()
     {
         if (Instance == null)
@@ -177,5 +180,23 @@ public class GameData : MonoBehaviour
     public bool IsCPUVsCPUMode()
     {
         return currentGameMode == GameMode.CPUVsCPU;
+    }
+    
+    // 테스트 모드 확인
+    public bool IsTestMode()
+    {
+        return isTestMode;
+    }
+    
+    // 테스트 모드 토글
+    public void ToggleTestMode()
+    {
+        isTestMode = !isTestMode;
+        Debug.Log($"[GameData] 🧪 테스트 모드: {(isTestMode ? "활성화" : "비활성화")}");
+        
+        if (isTestMode)
+        {
+            Debug.Log("[GameData] 🎥 테스트 모드 활성화 - 오셀로 돌 놓을 때마다 카메라가 자동으로 이동합니다.");
+        }
     }
 } 

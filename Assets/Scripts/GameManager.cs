@@ -427,8 +427,8 @@ public class GameManager : MonoBehaviour
                 Debug.Log("1P vs 2P 모드 시작");
                 break;
             case GameMode.CPUVsCPU:
-                Debug.Log("CPU vs CPU 모드 시작. 코루틴을 실행합니다.");
-                StartCoroutine(CPUVsCPUGameLoop()); // 삭제되었던 코루틴 호출 복구
+                Debug.Log("CPU vs CPU 모드 감지됨. 자동 실행을 시작합니다.");
+                StartCoroutine(CPUVsCPUGameLoop()); // ✅ 자동 실행 활성화
                 break;
         }
     }

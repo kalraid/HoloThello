@@ -230,8 +230,9 @@ public class Disc : MonoBehaviour
         float duration = 0.15f;
         float maxScale = 1.2f;
         float t = 0f;
-        Vector3 start = Vector3.one;
-        Vector3 end = Vector3.one * maxScale;
+        Vector3 originalScale = transform.localScale; // 현재 스케일을 기준으로
+        Vector3 start = originalScale;
+        Vector3 end = originalScale * maxScale;
         // 커졌다가
         while (t < duration / 2f)
         {
@@ -250,7 +251,7 @@ public class Disc : MonoBehaviour
             t += Time.deltaTime;
             yield return null;
         }
-        transform.localScale = start;
+        transform.localScale = originalScale; // 원래 스케일로 복원
     }
 
     public void AnimateFlip()
@@ -263,8 +264,9 @@ public class Disc : MonoBehaviour
         float duration = 0.12f;
         float maxScale = 1.2f;
         float t = 0f;
-        Vector3 start = Vector3.one;
-        Vector3 end = Vector3.one * maxScale;
+        Vector3 originalScale = transform.localScale; // 현재 스케일을 기준으로
+        Vector3 start = originalScale;
+        Vector3 end = originalScale * maxScale;
         Color origColor = mainRenderer.color;
         Color bright = origColor * 1.3f;
         // 밝아지고 커짐
@@ -288,7 +290,7 @@ public class Disc : MonoBehaviour
             t += Time.deltaTime;
             yield return null;
         }
-        transform.localScale = start;
+        transform.localScale = originalScale; // 원래 스케일로 복원
         mainRenderer.color = origColor;
     }
 } 

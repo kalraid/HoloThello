@@ -98,10 +98,12 @@ public class BoardManager : MonoBehaviour
                 }
                 
                 GameObject discObj = Instantiate(discPrefab, cellTransform);
-                // Cell 안에 정확히 배치되도록 위치 조정
-                discObj.transform.localPosition = Vector3.zero;
-                // 스케일을 Cell에 맞게 조정 (4배 크기)
-                discObj.transform.localScale = new Vector3(3.2f, 3.2f, 1f);
+                
+                // Cell 안에 정확히 배치되도록 위치 조정 (Z축을 앞으로)
+                discObj.transform.localPosition = new Vector3(0, 0, -0.5f);
+                
+                // 스케일을 Cell에 맞게 조정 (더 크게)
+                discObj.transform.localScale = new Vector3(50.0f, 50.0f, 1f);
                 
                 // Disc 컴포넌트 확인
                 Disc disc = discObj.GetComponent<Disc>();
@@ -116,17 +118,58 @@ public class BoardManager : MonoBehaviour
                 if (spriteRenderer == null)
                 {
                     spriteRenderer = discObj.AddComponent<SpriteRenderer>();
-                    Debug.Log($"[InitializeBoard] {discObj.name}에 SpriteRenderer를 추가했습니다.");
+                    // Debug.Log($"[InitializeBoard] {discObj.name}에 SpriteRenderer를 추가했습니다.");
                 }
                 
-                // 렌더링 순서 설정
-                spriteRenderer.sortingOrder = 2; // UI 위에 표시되도록
+                // 렌더링 순서 설정 (대폭 증가)
+                spriteRenderer.sortingOrder = 100; // 오셀로 판보다 훨씬 위에 표시되도록
+                // Debug.Log($"[InitializeBoard] 🎨 렌더링 우선순위 설정:");
+                // Debug.Log($"[InitializeBoard]   - sortingOrder: {spriteRenderer.sortingOrder}");
+                // Debug.Log($"[InitializeBoard]   - sortingLayerName: {spriteRenderer.sortingLayerName}");
+                // Debug.Log($"[InitializeBoard]   - sortingLayerID: {spriteRenderer.sortingLayerID}");
                 
-                Debug.Log($"[InitializeBoard] board[{x},{y}]에 Disc 할당 완료");
+                Canvas parentCanvas = discObj.GetComponentInParent<Canvas>();
+                
+                // ScreenSpaceOverlay를 World Space로 변경
+                if (parentCanvas != null && parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+                {
+                    parentCanvas.renderMode = RenderMode.WorldSpace;
+                }
+                
+
+                
+                // Debug.Log($"[InitializeBoard] board[{x},{y}]에 Disc 할당 완료");
                 disc.Initialize(x, y, this);
                 // 빈 칸을 초록색으로 설정
                 disc.SetEmpty();
+                
                 board[x, y] = disc;
+                
+                // // 🔍 초기화 후 오셀로 판 상태 상세 확인
+                // Debug.Log($"[InitializeBoard] 🔍 위치({x},{y}) 초기화 완료 후 상태:");
+                // Debug.Log($"[InitializeBoard]   - GameObject: {disc.gameObject.name}");
+                // Debug.Log($"[InitializeBoard]   - 활성화: {disc.gameObject.activeInHierarchy}");
+                // Debug.Log($"[InitializeBoard]   - 위치: {disc.transform.position}");
+                // Debug.Log($"[InitializeBoard]   - 로컬 위치: {disc.transform.localPosition}");
+                // Debug.Log($"[InitializeBoard]   - 스케일: {disc.transform.localScale}");
+                // Debug.Log($"[InitializeBoard]   - 부모: {disc.transform.parent?.name ?? "없음"}");
+                
+                // // 🔍 Z축 위치 특별 확인 (렌더링 문제 진단)
+                // Debug.Log($"[InitializeBoard] 🔍 Z축 위치 특별 확인:");
+                // Debug.Log($"[InitializeBoard]   - 월드 Z: {disc.transform.position.z:F3}");
+                // Debug.Log($"[InitializeBoard]   - 로컬 Z: {disc.transform.localPosition.z:F3}");
+                // Debug.Log($"[InitializeBoard]   - 부모 Z: {disc.transform.parent?.position.z:F3 ?? 0f}");
+                // Debug.Log($"[InitializeBoard]   - Z축 차이: {disc.transform.position.z - (disc.transform.parent?.position.z ?? 0f):F3}");
+                
+                // 초기 스프라이트 상태 확인
+                var initialSpriteRenderer = disc.GetComponent<SpriteRenderer>();
+                // if (initialSpriteRenderer != null)
+                // {
+                //     Debug.Log($"[InitializeBoard] 🖼️ 초기 SpriteRenderer 상태:");
+                //     Debug.Log($"[InitializeBoard]   - sprite: {initialSpriteRenderer.sprite?.name ?? "없음"}");
+                //     Debug.Log($"[InitializeBoard]   - color: {initialSpriteRenderer.color}");
+                //     Debug.Log($"[InitializeBoard]   - sortingOrder: {initialSpriteRenderer.sortingOrder}");
+                // }
             }
         }
     }
@@ -159,31 +202,66 @@ public class BoardManager : MonoBehaviour
     {
         if (gameEnded || !IsValidMove(x, y, isBlackTurn))
         {
+            Debug.LogWarning($"[BoardManager] TryPlacePiece 실패: 게임종료={gameEnded}, 유효하지 않은 수=({x},{y})");
             return false;
         }
 
         // 1. 돌 배치 및 뒤집기
         SetDiscOnBoard(x, y, isBlackTurn);
+        
+
+        
+        // 🎥 테스트용 카메라 자동 이동 (테스트 모드일 때만)
+        if (IsTestMode() && GameData.Instance != null && GameData.Instance.isTestMode)
+        {
+            MoveCameraToDisc(x, y);
+        }
+        
+
+        
+
+
+        
+
+        
         board[x, y].AnimatePlace(); // 돌 놓기 애니메이션 추가
         StartCoroutine(FlipPiecesWithEffect(x, y, isBlackTurn));
 
         // 로그: 일반 수 두기
         GameManager gm = FindFirstObjectByType<GameManager>();
         if (gm != null) gm.LogMove(x, y);
-
+        
         // 2. 턴 전환은 코루틴에서 애니메이션 끝난 후 처리
         return true;
     }
 
     void SetDiscOnBoard(int x, int y, bool isBlack)
     {
-        if (!IsValidPosition(x, y) || (board[x, y] != null && board[x, y].HasPiece())) return;
+        if (!IsValidPosition(x, y))
+        {
+            Debug.LogWarning($"[BoardManager] ⚠️ 유효하지 않은 위치: ({x},{y})");
+            return;
+        }
+        
+        if (board[x, y] != null && board[x, y].HasPiece())
+        {
+            Debug.LogWarning($"[BoardManager] ⚠️ 이미 돌이 있는 위치: ({x},{y})");
+            return;
+        }
+
+        // 보드 셀 상태 확인
+        if (board[x, y] == null)
+        {
+            Debug.LogError($"[BoardManager] ❌ 보드 셀이 null: 위치({x},{y})");
+            return;
+        }
 
         CharacterData selectedChar = isBlack 
             ? (GameData.Instance != null ? GameData.Instance.selectedCharacter1P : null)
             : (GameData.Instance != null ? GameData.Instance.selectedCharacterCPU : null);
         
         Sprite miniSprite = (selectedChar != null) ? selectedChar.discSprite : null;
+        
         board[x, y].SetDisc(isBlack, miniSprite);
     }
     
@@ -601,6 +679,233 @@ public class BoardManager : MonoBehaviour
                 TryPlacePiece(x, y);
             }
         }
+    }
+    
+    #endregion
+    
+    #region 테스트용 카메라 자동 이동 시스템
+    
+    /// <summary>
+    /// 현재 테스트 모드인지 확인
+    /// </summary>
+    private bool IsTestMode()
+    {
+        // Unity 에디터에서 실행 중이거나 테스트 플래그가 활성화된 경우
+        #if UNITY_EDITOR
+        return true;
+        #else
+        // 런타임에서 테스트 모드 확인
+        return GameData.Instance != null && GameData.Instance.IsTestMode();
+        #endif
+    }
+    
+    /// <summary>
+    /// 카메라를 특정 디스크 위치로 이동
+    /// </summary>
+    private void MoveCameraToDisc(int x, int y)
+    {
+        if (board[x, y] == null) return;
+        
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            // Main Camera를 찾을 수 없으면 모든 카메라 중 첫 번째 사용
+            Camera[] cameras = FindObjectsOfType<Camera>();
+            if (cameras.Length > 0)
+            {
+                mainCamera = cameras[0];
+            }
+            else
+            {
+                Debug.LogWarning("[BoardManager] 🎥 카메라를 찾을 수 없습니다!");
+                return;
+            }
+        }
+        
+        // 디스크의 월드 좌표 계산
+        Vector3 discPosition = board[x, y].transform.position;
+        
+        // 테스트용 카메라 위치 설정 (디스크 위에서 약간 뒤로)
+        Vector3 cameraPosition = discPosition + new Vector3(0, 0, -10f);
+        
+        // 부드러운 카메라 이동
+        StartCoroutine(MoveCameraSmoothly(mainCamera, cameraPosition, discPosition));
+        
+        Debug.Log($"[BoardManager] 🎥 카메라 이동: 위치({x},{y}) -> {cameraPosition}");
+    }
+    
+    /// <summary>
+    /// 부드러운 카메라 이동 코루틴
+    /// </summary>
+    private IEnumerator MoveCameraSmoothly(Camera camera, Vector3 targetPosition, Vector3 lookAtPosition)
+    {
+        Vector3 startPosition = camera.transform.position;
+        Vector3 startLookAt = camera.transform.position + camera.transform.forward;
+        
+        float duration = 0.5f; // 0.5초 동안 이동
+        float elapsed = 0f;
+        
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            
+            // 부드러운 보간 (EaseInOut)
+            float smoothT = t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
+            
+            // 위치 이동
+            camera.transform.position = Vector3.Lerp(startPosition, targetPosition, smoothT);
+            
+            // 디스크를 바라보도록 회전
+            Vector3 currentLookAt = Vector3.Lerp(startLookAt, lookAtPosition, smoothT);
+            camera.transform.LookAt(currentLookAt);
+            
+            yield return null;
+        }
+        
+        // 정확한 최종 위치 설정
+        camera.transform.position = targetPosition;
+        camera.transform.LookAt(lookAtPosition);
+        
+        // 2초 후 원래 위치로 복귀 (테스트용)
+        yield return new WaitForSeconds(2f);
+        
+        if (IsTestMode())
+        {
+            yield return StartCoroutine(ReturnCameraToOriginal(camera, startPosition, startLookAt));
+        }
+    }
+    
+    /// <summary>
+    /// 카메라를 원래 위치로 복귀
+    /// </summary>
+    private IEnumerator ReturnCameraToOriginal(Camera camera, Vector3 originalPosition, Vector3 originalLookAt)
+    {
+        Vector3 currentPosition = camera.transform.position;
+        Vector3 currentLookAt = camera.transform.position + camera.transform.forward;
+        
+        float duration = 0.8f; // 0.8초 동안 복귀
+        float elapsed = 0f;
+        
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            
+            // 부드러운 보간
+            float smoothT = t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
+            
+            // 위치 복귀
+            camera.transform.position = Vector3.Lerp(currentPosition, originalPosition, smoothT);
+            
+            // 원래 방향으로 회전
+            Vector3 targetLookAt = Vector3.Lerp(currentLookAt, originalLookAt, smoothT);
+            camera.transform.LookAt(targetLookAt);
+            
+            yield return null;
+        }
+        
+        // 정확한 최종 위치 설정
+        camera.transform.position = originalPosition;
+        camera.transform.LookAt(originalLookAt);
+        
+        Debug.Log("[BoardManager] 🎥 카메라가 원래 위치로 복귀했습니다.");
+    }
+    
+    #endregion
+    
+    #region 테스트용 오셀로 판 투명화
+    
+    /// <summary>
+    /// 테스트용으로 오셀로 판을 투명하게 만들어서 오셀로 돌이 뒤에 숨어있는지 확인
+    /// </summary>
+    public void MakeBoardTransparent()
+    {
+        Debug.Log("[BoardManager] 🔍 오셀로 판 투명화 시작");
+        
+        // BoardArea 찾기
+        GameObject boardArea = GameObject.Find("BoardArea");
+        if (boardArea == null)
+        {
+            Debug.LogError("[BoardManager] BoardArea를 찾을 수 없습니다!");
+            return;
+        }
+        
+        // 모든 Cell_x_y 오브젝트 찾기
+        for (int x = 0; x < boardSize; x++)
+        {
+            for (int y = 0; y < boardSize; y++)
+            {
+                string cellName = $"Cell_{x}_{y}";
+                Transform cellTransform = boardArea.transform.Find(cellName);
+                
+                if (cellTransform != null)
+                {
+                    // Image 컴포넌트 찾기
+                    Image cellImage = cellTransform.GetComponent<Image>();
+                    if (cellImage != null)
+                    {
+                        // 현재 색상을 투명하게 만들기 (알파값만 0으로)
+                        Color currentColor = cellImage.color;
+                        cellImage.color = new Color(currentColor.r, currentColor.g, currentColor.b, 0.1f); // 거의 투명하게
+                        
+                        Debug.Log($"[BoardManager] 🔍 {cellName} 투명화 완료: {cellImage.color}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[BoardManager] ⚠️ {cellName}에 Image 컴포넌트가 없습니다!");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[BoardManager] ⚠️ {cellName}을 찾을 수 없습니다!");
+                }
+            }
+        }
+        
+        Debug.Log("[BoardManager] ✅ 오셀로 판 투명화 완료");
+    }
+    
+    /// <summary>
+    /// 오셀로 판을 원래 색상으로 복원
+    /// </summary>
+    public void RestoreBoardColors()
+    {
+        Debug.Log("[BoardManager] 🔍 오셀로 판 색상 복원 시작");
+        
+        // BoardArea 찾기
+        GameObject boardArea = GameObject.Find("BoardArea");
+        if (boardArea == null)
+        {
+            Debug.LogError("[BoardManager] BoardArea를 찾을 수 없습니다!");
+            return;
+        }
+        
+        // 모든 Cell_x_y 오브젝트 찾기
+        for (int x = 0; x < boardSize; x++)
+        {
+            for (int y = 0; y < boardSize; y++)
+            {
+                string cellName = $"Cell_{x}_{y}";
+                Transform cellTransform = boardArea.transform.Find(cellName);
+                
+                if (cellTransform != null)
+                {
+                    // Image 컴포넌트 찾기
+                    Image cellImage = cellTransform.GetComponent<Image>();
+                    if (cellImage != null)
+                    {
+                        // 원래 체크무늬 색상으로 복원
+                        Color originalColor = (x + y) % 2 == 0 ? Color.green : Color.darkGreen;
+                        cellImage.color = originalColor;
+                        
+                        Debug.Log($"[BoardManager] 🔍 {cellName} 색상 복원 완료: {cellImage.color}");
+                    }
+                }
+            }
+        }
+        
+        Debug.Log("[BoardManager] ✅ 오셀로 판 색상 복원 완료");
     }
     
     #endregion

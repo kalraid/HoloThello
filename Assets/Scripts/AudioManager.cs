@@ -83,29 +83,35 @@ public class AudioManager : MonoBehaviour
 
     void InitializeAudioSourcePool()
     {
-        // ObjectPool에 오디오 소스 풀 등록
+        // ObjectPool이 있으면 ObjectPool 사용, 없으면 수동 풀 생성
         if (ObjectPool.Instance != null && audioSourcePrefab != null)
         {
             ObjectPool.Instance.AddPool("AudioSource", audioSourcePrefab, maxConcurrentSFX);
+            Debug.Log($"[AudioManager] ObjectPool을 사용하여 {maxConcurrentSFX}개의 SFX 소스 풀 등록");
         }
         else
         {
-            // ObjectPool이 없으면 수동으로 풀 생성
-            for (int i = 0; i < maxConcurrentSFX; i++)
+            // ObjectPool이 없으면 수동으로 풀 생성 (중복 방지)
+            if (availableAudioSources.Count == 0)
             {
-                AudioSource source = CreateNewSfxSource();
-                availableAudioSources.Enqueue(source);
+                for (int i = 0; i < maxConcurrentSFX; i++)
+                {
+                    AudioSource source = CreateNewSfxSource();
+                    availableAudioSources.Enqueue(source);
+                }
+                Debug.Log($"[AudioManager] 수동으로 {maxConcurrentSFX}개의 SFX 소스 풀 생성");
             }
         }
     }
 
     AudioSource CreateNewSfxSource()
     {
-        GameObject sfxGO = new GameObject("SFXSource");
+        GameObject sfxGO = new GameObject($"SFXSource_{availableAudioSources.Count + activeAudioSources.Count}");
         sfxGO.transform.SetParent(transform);
         AudioSource source = sfxGO.AddComponent<AudioSource>();
         source.loop = false;
         source.playOnAwake = false;
+        source.volume = 0f; // 초기 볼륨 0으로 설정 (나중에 조정)
         return source;
     }
 
