@@ -166,22 +166,45 @@ public class GameManager : MonoBehaviour
     {
         if (playerHpBar != null)
         {
+            // HP Bar 최대값을 10000으로 설정
+            playerHpBar.maxValue = 10000f;
             playerHpBar.value = playerHp;
+            
             if (playerHpBar.fillRect != null)
             {
                 Image fill = playerHpBar.fillRect.GetComponent<Image>();
-                if (fill != null) fill.color = new Color(0.9f, 0.1f, 0.1f, 1f);
+                if (fill != null)
+                {
+                    // HP에 따른 색상 변경 (녹색→노란색→빨간색)
+                    if (playerHp > 7000)
+                        fill.color = new Color(0.2f, 0.8f, 0.2f, 1f); // 녹색
+                    else if (playerHp > 3000)
+                        fill.color = new Color(1f, 0.8f, 0.2f, 1f); // 노란색
+                    else
+                        fill.color = new Color(0.9f, 0.1f, 0.1f, 1f); // 빨간색
+                }
             }
-            // fill 이미지를 빨간색으로
             AddHpBarSegments(playerHpBar);
         }
         if (cpuHpBar != null)
         {
+            // HP Bar 최대값을 10000으로 설정
+            cpuHpBar.maxValue = 10000f;
             cpuHpBar.value = cpuHp;
+            
             if (cpuHpBar.fillRect != null)
             {
                 Image fill = cpuHpBar.fillRect.GetComponent<Image>();
-                if (fill != null) fill.color = new Color(0.9f, 0.1f, 0.1f, 1f);
+                if (fill != null)
+                {
+                    // HP에 따른 색상 변경 (녹색→노란색→빨간색)
+                    if (cpuHp > 7000)
+                        fill.color = new Color(0.2f, 0.8f, 0.2f, 1f); // 녹색
+                    else if (cpuHp > 3000)
+                        fill.color = new Color(1f, 0.8f, 0.2f, 1f); // 노란색
+                    else
+                        fill.color = new Color(0.9f, 0.1f, 0.1f, 1f); // 빨간색
+                }
             }
             AddHpBarSegments(cpuHpBar);
         }
@@ -255,6 +278,33 @@ public class GameManager : MonoBehaviour
                 canvas.sortingOrder = 10; // HP바보다 위에 표시
             }
         }
+    }
+
+    // 부드러운 HP Bar 애니메이션
+    public void AnimateHPBar(Slider hpBar, float targetValue, float duration = 0.5f)
+    {
+        StartCoroutine(AnimateHPBarCoroutine(hpBar, targetValue, duration));
+    }
+
+    private System.Collections.IEnumerator AnimateHPBarCoroutine(Slider hpBar, float targetValue, float duration)
+    {
+        float startValue = hpBar.value;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            
+            // 부드러운 보간 (EaseOut)
+            float smoothT = 1f - Mathf.Pow(1f - t, 3f);
+            hpBar.value = Mathf.Lerp(startValue, targetValue, smoothT);
+            
+            yield return null;
+        }
+        
+        // 정확한 최종 값 설정
+        hpBar.value = targetValue;
     }
 
     // --- 게임 상태 관리 ---
@@ -594,6 +644,12 @@ public class GameManager : MonoBehaviour
         playerHp -= damage;
         if (playerHp < 0) playerHp = 0;
         
+        // 부드러운 HP Bar 애니메이션
+        if (playerHpBar != null)
+        {
+            AnimateHPBar(playerHpBar, playerHp, 0.3f);
+        }
+        
         UpdateHPBars();
         if(playerHpBar != null) ShowDamageEffect(playerHpBar, damage);
         
@@ -602,6 +658,9 @@ public class GameManager : MonoBehaviour
             EffectManager.Instance.FlashHealthBar(playerHpBar);
             EffectManager.Instance.PlayCharacterAnimation(true, "Hit");
         }
+        
+        // 캐릭터 배틀 모션 트리거
+        TriggerCharacterBattleMotion(true, damage, playerHp, 10000);
         
         if (AudioManager.Instance != null)
         {
@@ -622,6 +681,12 @@ public class GameManager : MonoBehaviour
         cpuHp -= damage;
         if (cpuHp < 0) cpuHp = 0;
         
+        // 부드러운 HP Bar 애니메이션
+        if (cpuHpBar != null)
+        {
+            AnimateHPBar(cpuHpBar, cpuHp, 0.3f);
+        }
+        
         UpdateHPBars();
         if(cpuHpBar != null) ShowDamageEffect(cpuHpBar, damage);
         
@@ -630,6 +695,9 @@ public class GameManager : MonoBehaviour
             EffectManager.Instance.FlashHealthBar(cpuHpBar);
             EffectManager.Instance.PlayCharacterAnimation(false, "Hit");
         }
+        
+        // 캐릭터 배틀 모션 트리거
+        TriggerCharacterBattleMotion(false, damage, cpuHp, 10000);
         
         if (AudioManager.Instance != null)
         {
@@ -1193,7 +1261,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    /// <summary>
+        /// <summary>
     /// 재시작 버튼 클릭
     /// </summary>
     public void OnRestartButtonClicked()
@@ -1201,4 +1269,20 @@ public class GameManager : MonoBehaviour
         Debug.Log("재시작 버튼 클릭됨");
         RestartGame();
     }
-}
+    
+    #region Character Battle Motion Integration
+    
+    /// <summary>
+    /// 캐릭터 배틀 모션 트리거
+    /// </summary>
+    private void TriggerCharacterBattleMotion(bool isPlayer, int damage, int currentHP, int maxHP)
+    {
+        CharacterBattleMotion battleMotion = FindFirstObjectByType<CharacterBattleMotion>();
+        if (battleMotion != null)
+        {
+            battleMotion.OnHealthDecreased(isPlayer, damage, currentHP, maxHP);
+        }
+    }
+    
+    #endregion
+} 

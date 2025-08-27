@@ -458,6 +458,13 @@ public class BoardManager : MonoBehaviour
             float multiplier = Mathf.Pow(1.2f, multiplierCount);
             damage = Mathf.RoundToInt(totalFlipped * multiplier);
         }
+        
+        // 캐릭터 배틀 모션 트리거
+        if (totalFlipped > 0)
+        {
+            TriggerCharacterBattleMotion(isBlack, damage, totalFlipped);
+        }
+        
         // 데미지 적용 및 로그
         if (totalFlipped > 0)
         {
@@ -915,4 +922,93 @@ public class BoardManager : MonoBehaviour
     // PlaceDisc는 GameManager.TryPlacePieceAt에서 이미 BoardManager.TryPlacePiece를 호출하므로,
     // 중복되는 public 메서드인 PlaceDisc(int, int, bool)는 제거하거나 private으로 변경 가능.
     // 여기서는 일단 유지하되, 향후 리팩토링 시 제거 고려.
+    
+    #region Character Battle Motion Integration
+    
+    /// <summary>
+    /// 캐릭터 배틀 모션 트리거
+    /// </summary>
+    private void TriggerCharacterBattleMotion(bool isBlack, int damage, int totalFlipped)
+    {
+        // CharacterBattleMotion 컴포넌트 찾기
+        CharacterBattleMotion battleMotion = FindFirstObjectByType<CharacterBattleMotion>();
+        if (battleMotion != null)
+        {
+            // 오셀로 돌 뒤집힘 이벤트 트리거
+            battleMotion.OnDiscFlipped(0, 0, isBlack, damage);
+            
+            // 돌 수에 따른 특별 모션
+            if (totalFlipped >= 8)
+            {
+                // 압도적 승리 모션
+                StartCoroutine(TriggerOverwhelmingVictoryMotion(isBlack));
+            }
+            else if (totalFlipped >= 5)
+            {
+                // 대승리 모션
+                StartCoroutine(TriggerGreatVictoryMotion(isBlack));
+            }
+        }
+        
+        // GameManager에도 체력 감소 모션 요청
+        GameManager gm = FindFirstObjectByType<GameManager>();
+        if (gm != null)
+        {
+            if (isBlack)
+            {
+                // 1P(흑)가 2P(백)에게 데미지
+                TriggerHealthDecreasedMotion(false, damage, gm.cpuHp, 10000);
+            }
+            else
+            {
+                // 2P(백)가 1P(흑)에게 데미지
+                TriggerHealthDecreasedMotion(true, damage, gm.playerHp, 10000);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 체력 감소 모션 트리거
+    /// </summary>
+    private void TriggerHealthDecreasedMotion(bool isPlayer, int damage, int currentHP, int maxHP)
+    {
+        CharacterBattleMotion battleMotion = FindFirstObjectByType<CharacterBattleMotion>();
+        if (battleMotion != null)
+        {
+            battleMotion.OnHealthDecreased(isPlayer, damage, currentHP, maxHP);
+        }
+    }
+    
+    /// <summary>
+    /// 압도적 승리 모션 (8개 이상 뒤집힘)
+    /// </summary>
+    private IEnumerator TriggerOverwhelmingVictoryMotion(bool isBlack)
+    {
+        CharacterBattleMotion battleMotion = FindFirstObjectByType<CharacterBattleMotion>();
+        if (battleMotion != null)
+        {
+            // 연속 콤보 모션
+            for (int i = 0; i < 3; i++)
+            {
+                battleMotion.OnComboDamage(isBlack, i + 1);
+                yield return new WaitForSeconds(0.2f);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 대승리 모션 (5개 이상 뒤집힘)
+    /// </summary>
+    private IEnumerator TriggerGreatVictoryMotion(bool isBlack)
+    {
+        CharacterBattleMotion battleMotion = FindFirstObjectByType<CharacterBattleMotion>();
+        if (battleMotion != null)
+        {
+            // 콤보 모션
+            battleMotion.OnComboDamage(isBlack, 2);
+        }
+        yield return null;
+    }
+    
+    #endregion
 } 
