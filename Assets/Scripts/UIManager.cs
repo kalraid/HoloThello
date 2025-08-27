@@ -276,7 +276,9 @@ public class UIManager : MonoBehaviour
     void ApplyFontSize(float sizeMultiplier)
     {
         // 폰트 크기 조정
-        Text[] allTexts = FindObjectsOfType<Text>();
+        #pragma warning disable CS0618 // Type or member is obsolete
+        Text[] allTexts = Object.FindObjectsOfType<Text>();
+        #pragma warning restore CS0618 // Type or member is obsolete
         foreach (Text text in allTexts)
         {
             text.fontSize = Mathf.RoundToInt(text.fontSize * sizeMultiplier);

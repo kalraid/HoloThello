@@ -163,7 +163,9 @@ public class TestManager : MonoBehaviour
         }
         
         // Disc.cs 스크립트 확인
-        Disc[] discs = FindObjectsOfType<Disc>();
+        #pragma warning disable CS0618 // Type or member is obsolete
+        Disc[] discs = Object.FindObjectsOfType<Disc>();
+        #pragma warning restore CS0618 // Type or member is obsolete
         if (discs.Length > 0)
         {
             AddTestResult($"  ✅ {discs.Length}개의 Disc 오브젝트 발견");
@@ -332,7 +334,9 @@ public class TestManager : MonoBehaviour
     {
         AddTestResult("🔍 HP바 구분선 테스트:");
         
-        Slider[] hpBars = FindObjectsOfType<Slider>();
+        #pragma warning disable CS0618 // Type or member is obsolete
+        Slider[] hpBars = Object.FindObjectsOfType<Slider>();
+        #pragma warning restore CS0618 // Type or member is obsolete
         if (hpBars.Length > 0)
         {
             AddTestResult($"  ✅ {hpBars.Length}개의 HP바 발견");
@@ -505,7 +509,9 @@ public class TestManager : MonoBehaviour
         }
         
         // AudioSource 컴포넌트 확인
-        AudioSource[] audioSources = FindObjectsOfType<AudioSource>();
+        #pragma warning disable CS0618 // Type or member is obsolete
+        AudioSource[] audioSources = Object.FindObjectsOfType<AudioSource>();
+        #pragma warning restore CS0618 // Type or member is obsolete
         if (audioSources.Length > 0)
         {
             AddTestResult($"  ✅ {audioSources.Length}개의 AudioSource 발견");

@@ -55,28 +55,34 @@ public static class EditorMenuManager
     [MenuItem(EditorConstants.Menus.TEST_MENU + "🔍 오셀로 판 투명화 (테스트)", false, 33)]
     public static void MakeBoardTransparent()
     {
+        #pragma warning disable CS0618 // Type or member is obsolete
         BoardManager boardManager = Object.FindObjectOfType<BoardManager>();
+        #pragma warning restore CS0618 // Type or member is obsolete
         if (boardManager != null)
         {
             boardManager.MakeBoardTransparent();
+            Debug.Log("보드가 투명해졌습니다.");
         }
         else
         {
-            Debug.LogWarning("[EditorMenuManager] BoardManager를 찾을 수 없습니다. 게임을 실행한 후 다시 시도해주세요.");
+            Debug.LogError("BoardManager를 찾을 수 없습니다.");
         }
     }
     
     [MenuItem(EditorConstants.Menus.TEST_MENU + "🎨 오셀로 판 색상 복원", false, 34)]
     public static void RestoreBoardColors()
     {
+        #pragma warning disable CS0618 // Type or member is obsolete
         BoardManager boardManager = Object.FindObjectOfType<BoardManager>();
+        #pragma warning restore CS0618 // Type or member is obsolete
         if (boardManager != null)
         {
             boardManager.RestoreBoardColors();
+            Debug.Log("보드 색상이 복원되었습니다.");
         }
         else
         {
-            Debug.LogWarning("[EditorMenuManager] BoardManager를 찾을 수 없습니다. 게임을 실행한 후 다시 시도해주세요.");
+            Debug.LogError("BoardManager를 찾을 수 없습니다.");
         }
     }
     

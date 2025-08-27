@@ -404,7 +404,9 @@ public class ComprehensiveTestSuite : MonoBehaviour
         AddComprehensiveResult("    🔍 UI 반응성 테스트:");
         
         // Canvas 확인
-        Canvas[] canvases = FindObjectsOfType<Canvas>();
+        #pragma warning disable CS0618 // Type or member is obsolete
+        Canvas[] canvases = Object.FindObjectsOfType<Canvas>();
+        #pragma warning restore CS0618 // Type or member is obsolete
         if (canvases.Length > 0)
         {
             AddComprehensiveResult($"      ✅ Canvas 발견 ({canvases.Length}개)");
@@ -415,8 +417,12 @@ public class ComprehensiveTestSuite : MonoBehaviour
         }
         
         // UI 요소들 확인
-        Button[] buttons = FindObjectsOfType<Button>();
-        Text[] texts = FindObjectsOfType<Text>();
+        #pragma warning disable CS0618 // Type or member is obsolete
+        Button[] buttons = Object.FindObjectsOfType<Button>();
+        #pragma warning restore CS0618 // Type or member is obsolete
+        #pragma warning disable CS0618 // Type or member is obsolete
+        Text[] texts = Object.FindObjectsOfType<Text>();
+        #pragma warning restore CS0618 // Type or member is obsolete
         
         AddComprehensiveResult($"      📊 UI 요소 - 버튼: {buttons.Length}개, 텍스트: {texts.Length}개");
         

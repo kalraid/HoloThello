@@ -10,12 +10,36 @@ namespace EditorSetup.Common
         [MenuItem("Tools/Setup/Connect Prefabs")]
         public static void ConnectAllPrefabs()
         {
-            ConnectEffectManagerPrefabs();
-            ConnectBoardManagerPrefabs();
-            ConnectGameManagerPrefabs();
-            ConnectAudioManagerPrefabs();
+            Debug.Log("모든 프리팹 연결을 시작합니다...");
             
-            EditorUtility.DisplayDialog("프리팹 연결 완료", "모든 프리팹이 연결되었습니다!", "확인");
+            // EffectManager 확인
+            #pragma warning disable CS0618 // Type or member is obsolete
+            var effectManager = Object.FindObjectOfType<EffectManager>();
+            #pragma warning restore CS0618 // Type or member is obsolete
+            if (effectManager != null)
+            {
+                ConnectEffectManagerPrefabs();
+            }
+            
+            // BoardManager 확인
+            #pragma warning disable CS0618 // Type or member is obsolete
+            var boardManager = Object.FindObjectOfType<BoardManager>();
+            #pragma warning restore CS0618 // Type or member is obsolete
+            if (boardManager != null)
+            {
+                ConnectBoardManagerPrefabs();
+            }
+            
+            // GameManager 확인
+            #pragma warning disable CS0618 // Type or member is obsolete
+            var gameManager = Object.FindObjectOfType<GameManager>();
+            #pragma warning restore CS0618 // Type or member is obsolete
+            if (gameManager != null)
+            {
+                ConnectGameManagerPrefabs();
+            }
+            
+            Debug.Log("모든 프리팹 연결이 완료되었습니다.");
         }
         
         [MenuItem("Tools/Setup/Connect Prefabs with Scene Switch")]
@@ -43,88 +67,75 @@ namespace EditorSetup.Common
         [MenuItem("Tools/Setup/Connect EffectManager Prefabs")]
         public static void ConnectEffectManagerPrefabs()
         {
+            #pragma warning disable CS0618 // Type or member is obsolete
             var effectManager = Object.FindObjectOfType<EffectManager>();
+            #pragma warning restore CS0618 // Type or member is obsolete
             if (effectManager != null)
             {
-                var damageTextPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/DamageText.prefab");
-                var skillButtonPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/SkillButton.prefab");
+                // EffectManager 프리팹 연결
+                ConnectPrefabToField(effectManager, "damageTextPrefab", "DamageText");
+                ConnectPrefabToField(effectManager, "skillEffectPrefab", "SkillEffect");
+                ConnectPrefabToField(effectManager, "victoryDefeatEffectPrefab", "VictoryDefeatEffect");
                 
-                if (damageTextPrefab != null)
-                {
-                    effectManager.damageTextPrefab = damageTextPrefab;
-                    Debug.Log("EffectManager: damageTextPrefab 연결 완료");
-                }
-                
-                if (skillButtonPrefab != null)
-                {
-                    effectManager.skillButtonPrefab = skillButtonPrefab;
-                    Debug.Log("EffectManager: skillButtonPrefab 연결 완료");
-                }
-                
-                EditorUtility.SetDirty(effectManager);
+                Debug.Log("EffectManager 프리팹 연결 완료");
             }
             else
             {
-                Debug.LogWarning("EffectManager를 찾을 수 없습니다. GameScene에서 실행해주세요.");
+                Debug.LogWarning("EffectManager를 찾을 수 없습니다.");
             }
         }
         
         [MenuItem("Tools/Setup/Connect BoardManager Prefabs")]
         public static void ConnectBoardManagerPrefabs()
         {
+            #pragma warning disable CS0618 // Type or member is obsolete
             var boardManager = Object.FindObjectOfType<BoardManager>();
+            #pragma warning restore CS0618 // Type or member is obsolete
             if (boardManager != null)
             {
-                var discPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Disc.prefab");
+                // BoardManager 프리팹 연결
+                ConnectPrefabToField(boardManager, "discPrefab", "Disc");
                 
-                if (discPrefab != null)
-                {
-                    boardManager.discPrefab = discPrefab;
-                    Debug.Log("BoardManager: discPrefab 연결 완료");
-                    EditorUtility.SetDirty(boardManager);
-                }
+                Debug.Log("BoardManager 프리팹 연결 완료");
             }
             else
             {
-                Debug.LogWarning("BoardManager를 찾을 수 없습니다. GameScene에서 실행해주세요.");
+                Debug.LogWarning("BoardManager를 찾을 수 없습니다.");
             }
         }
         
         [MenuItem("Tools/Setup/Connect GameManager Prefabs")]
         public static void ConnectGameManagerPrefabs()
         {
+            #pragma warning disable CS0618 // Type or member is obsolete
             var gameManager = Object.FindObjectOfType<GameManager>();
+            #pragma warning restore CS0618 // Type or member is obsolete
             if (gameManager != null)
             {
-                var discPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Disc.prefab");
+                // GameManager 프리팹 연결
+                ConnectPrefabToField(gameManager, "skillButtonPrefab", "SkillButton");
+                ConnectPrefabToField(gameManager, "messagePopupPrefab", "MessagePopup");
                 
-                if (discPrefab != null)
-                {
-                    gameManager.discPrefab = discPrefab;
-                    Debug.Log("GameManager: discPrefab 연결 완료");
-                    EditorUtility.SetDirty(gameManager);
-                }
+                Debug.Log("GameManager 프리팹 연결 완료");
             }
             else
             {
-                Debug.LogWarning("GameManager를 찾을 수 없습니다. GameScene에서 실행해주세요.");
+                Debug.LogWarning("GameManager를 찾을 수 없습니다.");
             }
         }
         
         [MenuItem("Tools/Setup/Connect AudioManager Prefabs")]
         public static void ConnectAudioManagerPrefabs()
         {
+            #pragma warning disable CS0618 // Type or member is obsolete
             var audioManager = Object.FindObjectOfType<AudioManager>();
+            #pragma warning restore CS0618 // Type or member is obsolete
             if (audioManager != null)
             {
-                // AudioSource 프리팹이 있다면 연결
-                var audioSourcePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/AudioSource.prefab");
-                if (audioSourcePrefab != null)
-                {
-                    audioManager.audioSourcePrefab = audioSourcePrefab;
-                    Debug.Log("AudioManager: audioSourcePrefab 연결 완료");
-                    EditorUtility.SetDirty(audioManager);
-                }
+                // AudioManager 프리팹 연결
+                ConnectPrefabToField(audioManager, "audioSourcePrefab", "AudioSource");
+                
+                Debug.Log("AudioManager 프리팹 연결 완료");
             }
             else
             {
@@ -138,7 +149,7 @@ namespace EditorSetup.Common
             Debug.Log("=== 프리팹 연결 상태 확인 ===");
             
             // EffectManager 확인
-            var effectManager = Object.FindObjectOfType<EffectManager>();
+            var effectManager = FindFirstObjectByType<EffectManager>();
             if (effectManager != null)
             {
                 Debug.Log($"EffectManager.damageTextPrefab: {(effectManager.damageTextPrefab != null ? "연결됨" : "연결 안됨")}");
@@ -146,14 +157,14 @@ namespace EditorSetup.Common
             }
             
             // BoardManager 확인
-            var boardManager = Object.FindObjectOfType<BoardManager>();
+            var boardManager = FindFirstObjectByType<BoardManager>();
             if (boardManager != null)
             {
                 Debug.Log($"BoardManager.discPrefab: {(boardManager.discPrefab != null ? "연결됨" : "연결 안됨")}");
             }
             
             // GameManager 확인
-            var gameManager = Object.FindObjectOfType<GameManager>();
+            var gameManager = FindFirstObjectByType<GameManager>();
             if (gameManager != null)
             {
                 Debug.Log($"GameManager.discPrefab: {(gameManager.discPrefab != null ? "연결됨" : "연결 안됨")}");

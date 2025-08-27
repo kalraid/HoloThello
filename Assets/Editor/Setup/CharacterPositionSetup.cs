@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEditor;
+using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using UnityEditor.SceneManagement;
 
@@ -218,7 +219,9 @@ namespace EditorSetup
 
         private static void ConnectPositionMarkersToCharacterBattleMotion()
         {
+            #pragma warning disable CS0618 // Type or member is obsolete
             CharacterBattleMotion battleMotion = Object.FindObjectOfType<CharacterBattleMotion>();
+            #pragma warning restore CS0618 // Type or member is obsolete
             if (battleMotion == null)
             {
                 Debug.LogWarning("CharacterBattleMotion 컴포넌트를 찾을 수 없습니다. 수동으로 연결해주세요.");
@@ -271,7 +274,9 @@ namespace EditorSetup
         private static CharacterBattleMotion SetupCharacterBattleMotionComponent()
         {
             // GameManager 찾기
+            #pragma warning disable CS0618 // Type or member is obsolete
             GameManager gameManager = Object.FindObjectOfType<GameManager>();
+            #pragma warning restore CS0618 // Type or member is obsolete
             if (gameManager == null)
             {
                 Debug.LogError("GameManager를 찾을 수 없습니다.");
@@ -299,7 +304,9 @@ namespace EditorSetup
         private static void TryAutoConnectCharacterImages(CharacterBattleMotion battleMotion)
         {
             // Canvas 찾기
+            #pragma warning disable CS0618 // Type or member is obsolete
             Canvas canvas = Object.FindObjectOfType<Canvas>();
+            #pragma warning restore CS0618 // Type or member is obsolete
             if (canvas == null)
             {
                 Debug.LogWarning("Canvas를 찾을 수 없어 캐릭터 이미지 자동 연결을 건너뜁니다.");

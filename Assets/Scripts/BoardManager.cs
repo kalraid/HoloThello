@@ -230,7 +230,7 @@ public class BoardManager : MonoBehaviour
         // 로그: 일반 수 두기
         GameManager gm = FindFirstObjectByType<GameManager>();
         if (gm != null) gm.LogMove(x, y);
-        
+
         // 2. 턴 전환은 코루틴에서 애니메이션 끝난 후 처리
         return true;
     }
@@ -717,7 +717,9 @@ public class BoardManager : MonoBehaviour
         if (mainCamera == null)
         {
             // Main Camera를 찾을 수 없으면 모든 카메라 중 첫 번째 사용
-            Camera[] cameras = FindObjectsOfType<Camera>();
+            #pragma warning disable CS0618 // Type or member is obsolete
+            Camera[] cameras = Object.FindObjectsOfType<Camera>();
+            #pragma warning restore CS0618 // Type or member is obsolete
             if (cameras.Length > 0)
             {
                 mainCamera = cameras[0];

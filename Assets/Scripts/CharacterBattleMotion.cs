@@ -29,8 +29,6 @@ public class CharacterBattleMotion : MonoBehaviour
     
     private Vector3 playerOriginalPosition;
     private Vector3 cpuOriginalPosition;
-    private bool isPlayerShaking = false;
-    private bool isCpuShaking = false;
     
     private BoardManager boardManager;
     private GameManager gameManager;
@@ -39,9 +37,9 @@ public class CharacterBattleMotion : MonoBehaviour
     {
         // 참조 찾기
         if (boardManager == null)
-            boardManager = FindObjectOfType<BoardManager>();
+            boardManager = FindFirstObjectByType<BoardManager>();
         if (gameManager == null)
-            gameManager = FindObjectOfType<GameManager>();
+            gameManager = FindFirstObjectByType<GameManager>();
             
         // 초기 위치 저장
         if (playerCharacterImage != null)
